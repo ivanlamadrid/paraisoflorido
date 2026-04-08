@@ -1,0 +1,71 @@
+{
+  "institutionSettings": {
+    "schoolName": "Colegio Paraiso Florido 3082",
+    "activeSchoolYear": 2026,
+    "initialStudentPassword": "Cambiar123",
+    "enabledTurns": ["morning", "afternoon"],
+    "enabledGrades": [1, 2],
+    "sectionsByGrade": {
+      "1": ["A"],
+      "2": ["B"]
+    }
+  },
+  "adminUsers": [
+    {
+      "username": "director",
+      "displayName": "Director General",
+      "role": "director",
+      "password": "Director123",
+      "isActive": true
+    },
+    {
+      "username": "secretaria",
+      "displayName": "Secretaria Principal",
+      "role": "secretary",
+      "password": "Secretaria123",
+      "isActive": true
+    },
+    {
+      "username": "auxiliar",
+      "displayName": "Auxiliar Turno Manana",
+      "role": "auxiliary",
+      "password": "Auxiliar123",
+      "isActive": true
+    }
+  ],
+  "students": [
+    {
+      "code": "u20260001",
+      "firstName": "Ana",
+      "lastName": "Lopez",
+      "document": "74561234",
+      "grade": 1,
+      "section": "A",
+      "shift": "morning",
+      "schoolYear": 2026,
+      "isActive": true
+    },
+    {
+      "code": "u20260002",
+      "firstName": "Luis",
+      "lastName": "Quispe",
+      "document": "73459821",
+      "grade": 1,
+      "section": "A",
+      "shift": "morning",
+      "schoolYear": 2026,
+      "isActive": true
+    },
+    {
+      "code": "u20260003",
+      "firstName": "Maria",
+      "lastName": "Rojas",
+      "document": "72114567",
+      "grade": 2,
+      "section": "B",
+      "shift": "afternoon",
+      "schoolYear": 2026,
+      "isActive": true
+    }
+  ]
+}

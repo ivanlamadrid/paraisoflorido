@@ -1,0 +1,19 @@
+{
+  "name": "colegio",
+  "private": true,
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace api",
+    "dev:web": "npm run dev --workspace web",
+    "build:api": "npm run build --workspace api",
+    "build:web": "npm run build --workspace web",
+    "lint:api": "npm run lint --workspace api",
+    "lint:web": "npm run lint --workspace web"
+  }
+}

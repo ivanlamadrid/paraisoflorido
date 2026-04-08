@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+coverage/
+.webstorm/
+.idea/
+
+# envs
+.env
+.env.local
+.env.*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# quasar
+web/.quasar/
+web/dist/
+
+# nest
+api/dist/
+
+# misc
+.DS_Store
+Thumbs.db
