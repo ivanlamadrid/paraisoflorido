@@ -76,12 +76,8 @@ const emit = defineEmits<{
 
 const $q = useQuasar();
 const screenWidth = computed(() => $q.screen.width);
-const isPhone = computed(() => screenWidth.value < 768);
-const isTablet = computed(
-  () => screenWidth.value >= 768 && screenWidth.value < 1024,
-);
+const showBottomNav = computed(() => screenWidth.value < 1024);
 const showInlineTabs = computed(
-  () => isTablet.value || (!isPhone.value && props.showDesktopTabs),
+  () => !showBottomNav.value && props.showDesktopTabs,
 );
-const showBottomNav = computed(() => isPhone.value);
 </script>

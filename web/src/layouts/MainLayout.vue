@@ -64,6 +64,18 @@
             <span class="app-sidebar__role-label">{{ roleLabel }}</span>
             <span class="app-sidebar__role-copy">{{ roleSummary }}</span>
           </div>
+
+          <q-btn
+            v-if="isPhone && sessionStore.user && !isSidebarMini"
+            flat
+            color="primary"
+            icon="logout"
+            label="Cerrar sesión"
+            no-caps
+            align="left"
+            class="app-sidebar__logout-btn"
+            @click="handleLogout"
+          />
         </div>
       </div>
     </q-drawer>
@@ -119,6 +131,7 @@
             </div>
 
             <q-btn
+              v-if="!isPhone"
               flat
               color="primary"
               icon="logout"
@@ -181,6 +194,7 @@ const shellIcons = {
 } as const;
 
 const isDesktop = computed(() => $q.screen.gt.sm);
+const isPhone = computed(() => $q.screen.width < 768);
 
 const roleLabel = computed(() => {
   if (!sessionStore.user) {

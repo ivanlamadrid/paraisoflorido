@@ -434,6 +434,16 @@ body {
   box-shadow: var(--ui-shadow-soft);
 }
 
+.app-sidebar__logout-btn {
+  justify-self: stretch;
+  min-height: 44px;
+  padding-inline: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(179, 38, 45, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--ui-shadow-soft);
+}
+
 .app-header {
   background: rgba(252, 249, 248, 0.92);
   backdrop-filter: blur(18px);
@@ -849,6 +859,7 @@ body {
 .role-section-view {
   display: grid;
   gap: var(--ui-section-gap);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .ui-loading-state {
@@ -874,6 +885,11 @@ body {
   width: 100%;
 }
 
+.role-section-nav__mobile {
+  z-index: 30;
+  width: 100%;
+}
+
 .role-section-nav__tab {
   min-height: 52px;
   border-radius: 18px;
@@ -882,13 +898,21 @@ body {
 .role-section-nav__bottom {
   display: flex;
   align-items: stretch;
-  width: min(100vw - 18px, 520px);
-  padding: 6px;
+  width: min(calc(100vw - 24px), 720px);
+  margin-inline: auto;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
   gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  backdrop-filter: blur(18px);
+}
+
+.role-section-nav__bottom::-webkit-scrollbar {
+  display: none;
 }
 
 .role-section-nav__bottom-btn {
-  flex: 1;
+  flex: 1 0 88px;
   min-height: 62px;
   border-radius: 18px;
   color: var(--ui-text-muted);
@@ -2804,6 +2828,10 @@ body {
     margin-left: auto;
   }
 
+  .role-section-view {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
   .student-profile-dialog-card {
     max-height: 100dvh;
     border-radius: 0;
@@ -2904,7 +2932,7 @@ body {
   }
 
   .role-section-view {
-    padding-bottom: 86px;
+    padding-bottom: calc(94px + env(safe-area-inset-bottom));
   }
 
   .student-credential-card__top,
@@ -3061,32 +3089,86 @@ body {
 
 @media (min-width: 768px) and (max-width: 1023px) {
   .auth-layout__shell {
-    width: min(100%, 760px);
+    width: min(100%, 680px);
+    padding-top: 20px;
+    padding-bottom: 20px;
   }
 
   .auth-page__stack {
-    width: min(100%, 720px);
+    width: min(100%, 560px);
     display: grid;
-    gap: 18px;
+    gap: 14px;
   }
 
   .auth-page__stack > .auth-institution-panel--embedded {
-    order: -1;
     margin-top: 0 !important;
   }
 
-  .auth-card__info-grid,
-  .auth-institution-panel--embedded .auth-institution-panel__info-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .auth-card--login {
+    border-radius: 28px;
+  }
+
+  .auth-card__top {
+    padding-bottom: 18px;
+  }
+
+  .auth-card__body {
+    padding-top: 18px;
+  }
+
+  .auth-institution-panel--embedded {
+    border-radius: 24px;
   }
 
   .auth-institution-panel--embedded .auth-institution-panel__body {
-    padding: 20px 22px;
+    padding: 16px 18px;
+  }
+
+  .auth-institution-panel--embedded .auth-institution-panel__header {
+    align-items: center;
+    gap: 12px;
+  }
+
+  .auth-institution-panel--embedded .auth-institution-panel__mark .school-mark__emblem {
+    width: 56px;
+    height: 70px;
   }
 
   .auth-institution-panel--embedded .auth-institution-panel__title {
-    margin-top: 16px;
-    font-size: 1.36rem;
+    margin-top: 12px;
+    font-size: 1.14rem;
+  }
+
+  .auth-institution-panel--embedded .auth-institution-panel__copy {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .auth-institution-panel--embedded .auth-institution-panel__info-list {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .auth-institution-panel--embedded .auth-institution-panel__info-item:last-child {
+    display: none;
+  }
+
+  .role-section-nav__bottom {
+    width: min(calc(100vw - 40px), 760px);
+    padding-inline: 10px;
+    gap: 8px;
+  }
+
+  .role-section-nav__bottom-btn {
+    flex-basis: 108px;
+    min-height: 68px;
+  }
+
+  .role-section-nav__bottom-btn span {
+    font-size: 0.82rem;
+    line-height: 1.2;
   }
 
   .app-toolbar {
@@ -3206,9 +3288,16 @@ body {
 }
 
 .announcements-page {
-  .ui-page-shell {
-    gap: 0;
-  }
+  padding: 24px var(--ui-page-padding-x) 32px;
+}
+
+.announcements-page .ui-page-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.announcements-page .q-card {
+  overflow: hidden;
 }
 
 .announcements-filter-card,
@@ -3351,6 +3440,7 @@ body {
   white-space: pre-wrap;
   line-height: 1.75;
   color: #1f2937;
+  max-width: 68ch;
 }
 
 .announcement-audience-row,
@@ -3375,6 +3465,11 @@ body {
 }
 
 @media (max-width: 1023px) {
+  .announcements-page {
+    padding-top: 20px;
+    padding-bottom: 28px;
+  }
+
   .announcements-featured-grid {
     grid-template-columns: 1fr;
   }
@@ -3383,5 +3478,23 @@ body {
   .announcement-card__footer {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 767px) {
+  .announcements-page {
+    padding: 20px var(--ui-page-padding-x) 28px;
+  }
+
+  .announcements-page .ui-page-shell {
+    gap: 16px;
+  }
+
+  .announcement-card__title {
+    font-size: 1rem;
+  }
+
+  .announcement-detail-card__body {
+    max-width: none;
   }
 }
