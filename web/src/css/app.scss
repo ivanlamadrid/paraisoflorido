@@ -2806,9 +2806,17 @@ body {
   }
 
   .app-toolbar__main {
-    grid-template-columns: auto minmax(0, 1fr);
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
     align-items: center;
     gap: 12px;
+  }
+
+  .app-toolbar__mobile-brand {
+    display: flex;
+    justify-content: flex-end;
+    margin-left: auto;
   }
 
   .app-sidebar__inner {
