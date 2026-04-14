@@ -289,6 +289,7 @@ import StatusBanner from 'components/ui/StatusBanner.vue';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import { getAnnouncementFeed } from 'src/services/api/announcements-api';
 import { useSessionStore } from 'src/stores/session-store';
+import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
 import type {
   AnnouncementFeedResponse,
   AnnouncementPriority,
@@ -314,6 +315,7 @@ type FeedbackState = {
 
 const router = useRouter();
 const sessionStore = useSessionStore();
+const studentNotificationsStore = useStudentNotificationsStore();
 
 const isLoading = ref(false);
 const feedback = ref<FeedbackState | null>(null);
@@ -389,6 +391,10 @@ async function loadFeed(): Promise<void> {
     }
 
     feed.value = await getAnnouncementFeed(query);
+
+    if (sessionStore.user?.role === 'student') {
+      await studentNotificationsStore.refreshAnnouncements({ allowToast: false });
+    }
   } catch (error) {
     feed.value = {
       items: [],

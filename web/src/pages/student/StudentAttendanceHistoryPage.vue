@@ -51,6 +51,133 @@
             :message="todayFeedback.message"
           />
 
+          <q-card
+            v-if="studentNotificationsStore.hasUnreadAnnouncements"
+            flat
+            bordered
+            class="history-card student-announcements-panel q-mt-lg"
+          >
+            <q-card-section class="ui-card-body">
+              <div class="student-announcements-panel__header">
+                <div class="student-announcements-panel__heading">
+                  <div class="ui-eyebrow">Comunicados</div>
+                  <div class="text-subtitle1 text-weight-bold q-mt-sm">
+                    Tienes comunicados nuevos
+                  </div>
+                  <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
+                    Revisa los avisos pendientes y prioriza los mensajes destacados del colegio.
+                  </p>
+                </div>
+
+                <div class="student-announcements-panel__actions">
+                  <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="mail">
+                    {{ studentNotificationsStore.unreadCount }} sin leer
+                  </q-chip>
+                  <q-btn
+                    flat
+                    color="primary"
+                    icon="arrow_forward"
+                    label="Ir a comunicados"
+                    no-caps
+                    @click="router.push('/comunicados')"
+                  />
+                </div>
+              </div>
+
+              <div
+                v-if="studentNotificationsStore.highlightedAnnouncement"
+                class="student-announcements-panel__featured q-mt-lg"
+              >
+                <div class="student-announcements-panel__featured-copy">
+                  <div class="row items-center q-gutter-sm">
+                    <q-chip
+                      dense
+                      class="ui-stat-chip"
+                      :color="getAnnouncementPriorityTone(studentNotificationsStore.highlightedAnnouncement.priority).color"
+                      :text-color="getAnnouncementPriorityTone(studentNotificationsStore.highlightedAnnouncement.priority).textColor"
+                      :icon="getAnnouncementPriorityTone(studentNotificationsStore.highlightedAnnouncement.priority).icon"
+                    >
+                      {{ getAnnouncementPriorityLabel(studentNotificationsStore.highlightedAnnouncement.priority) }}
+                    </q-chip>
+                    <q-chip
+                      v-if="studentNotificationsStore.highlightedAnnouncement.isPinned"
+                      dense
+                      class="ui-stat-chip"
+                      color="amber-1"
+                      text-color="amber-10"
+                      icon="push_pin"
+                    >
+                      Fijado
+                    </q-chip>
+                  </div>
+                  <div class="text-subtitle2 text-weight-bold q-mt-md">
+                    {{ studentNotificationsStore.highlightedAnnouncement.title }}
+                  </div>
+                  <p class="text-body2 text-grey-7 q-mt-sm q-mb-none">
+                    {{ studentNotificationsStore.highlightedAnnouncement.summary }}
+                  </p>
+                </div>
+
+                <q-btn
+                  flat
+                  color="primary"
+                  icon="visibility"
+                  label="Abrir"
+                  no-caps
+                  @click="router.push(`/comunicados/${studentNotificationsStore.highlightedAnnouncement?.id}`)"
+                />
+              </div>
+
+              <div
+                v-if="studentNotificationsStore.homeAnnouncements.length > 0"
+                class="student-announcements-panel__list q-mt-lg"
+              >
+                <article
+                  v-for="item in studentNotificationsStore.homeAnnouncements"
+                  :key="item.id"
+                  class="student-announcements-panel__item"
+                >
+                  <div class="student-announcements-panel__item-copy">
+                    <div class="row items-center q-gutter-sm">
+                      <q-chip
+                        dense
+                        class="ui-stat-chip"
+                        :color="getAnnouncementTypeTone(item.type).color"
+                        :text-color="getAnnouncementTypeTone(item.type).textColor"
+                        :icon="getAnnouncementTypeTone(item.type).icon"
+                      >
+                        {{ getAnnouncementTypeLabel(item.type) }}
+                      </q-chip>
+                      <q-chip
+                        v-if="item.isPinned"
+                        dense
+                        class="ui-stat-chip"
+                        color="amber-1"
+                        text-color="amber-10"
+                        icon="push_pin"
+                      >
+                        Fijado
+                      </q-chip>
+                    </div>
+                    <div class="text-body1 text-weight-medium q-mt-sm">{{ item.title }}</div>
+                    <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">{{ item.summary }}</p>
+                  </div>
+
+                  <div class="student-announcements-panel__item-meta">
+                    <span>{{ formatAnnouncementDate(item.publishedAt) }}</span>
+                    <q-btn
+                      flat
+                      color="primary"
+                      label="Ver"
+                      no-caps
+                      @click="router.push(`/comunicados/${item.id}`)"
+                    />
+                  </div>
+                </article>
+              </div>
+            </q-card-section>
+          </q-card>
+
           <q-card flat bordered class="history-card student-today-panel q-mt-lg">
             <q-card-section class="ui-card-body">
               <div class="ui-eyebrow">Hoy</div>
@@ -299,9 +426,17 @@ import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import { getMyStudentInstitutionalProfile } from 'src/services/api/students-api';
 import { useSessionStore } from 'src/stores/session-store';
+import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
 import type { AttendanceHistoryItem } from 'src/types/attendance';
 import type { ChangePasswordPayload } from 'src/types/session';
 import type { StudentDetail } from 'src/types/students';
+import {
+  formatAnnouncementDate,
+  getAnnouncementPriorityLabel,
+  getAnnouncementPriorityTone,
+  getAnnouncementTypeLabel,
+  getAnnouncementTypeTone,
+} from 'src/utils/announcements';
 
 type FeedbackState = {
   type: 'success' | 'error' | 'warning' | 'info';
@@ -331,6 +466,7 @@ type HistorySummary = {
 type StudentSection = 'today' | 'history' | 'qr' | 'account';
 
 const sessionStore = useSessionStore();
+const studentNotificationsStore = useStudentNotificationsStore();
 const route = useRoute();
 const router = useRouter();
 const { isCompactTablet } = useResponsiveDevice();

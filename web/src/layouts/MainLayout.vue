@@ -46,6 +46,16 @@
                 {{ item.caption }}
               </q-item-label>
             </q-item-section>
+            <q-item-section v-if="!isSidebarMini && item.badgeCount" side>
+              <q-badge
+                rounded
+                color="primary"
+                text-color="white"
+                class="app-sidebar__item-badge"
+              >
+                {{ item.badgeCount > 99 ? '99+' : item.badgeCount }}
+              </q-badge>
+            </q-item-section>
           </q-item>
         </q-list>
 
@@ -159,6 +169,7 @@ import SchoolMark from 'components/ui/SchoolMark.vue';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { useInstitutionStore } from 'src/stores/institution-store';
 import { useSessionStore } from 'src/stores/session-store';
+import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
 import type { UserRole } from 'src/types/session';
 
 type ShellNavItem = {
@@ -168,6 +179,7 @@ type ShellNavItem = {
   icon: string;
   path: string;
   query?: Record<string, string>;
+  badgeCount?: number;
 };
 
 const route = useRoute();
@@ -175,6 +187,7 @@ const router = useRouter();
 const $q = useQuasar();
 const institutionStore = useInstitutionStore();
 const sessionStore = useSessionStore();
+const studentNotificationsStore = useStudentNotificationsStore();
 
 const isSidebarOpen = ref(false);
 const isSidebarMini = ref(false);
@@ -310,6 +323,7 @@ const navigationItems = computed<ShellNavItem[]>(() => {
         caption: 'Avisos del colegio',
         icon: 'campaign',
         path: '/comunicados',
+        badgeCount: studentNotificationsStore.unreadCount,
       },
     ];
   }
@@ -571,6 +585,66 @@ watch(
     isSidebarOpen.value = false;
   },
   { immediate: true },
+);
+
+watch(
+  () => sessionStore.user,
+  (currentUser) => {
+    if (currentUser?.role === 'student') {
+      studentNotificationsStore.start(currentUser.id);
+      return;
+    }
+
+    studentNotificationsStore.reset();
+  },
+  { immediate: true },
+);
+
+watch(
+  () => studentNotificationsStore.nextAnnouncementToast?.key,
+  () => {
+    const toast = studentNotificationsStore.consumeAnnouncementToast();
+
+    if (!toast) {
+      return;
+    }
+
+    $q.notify({
+      type: toast.variant === 'emphasis' ? 'warning' : 'info',
+      icon: toast.variant === 'emphasis' ? 'campaign' : 'mail',
+      message: toast.title,
+      caption: toast.message,
+      timeout: toast.variant === 'emphasis' ? 5200 : 4200,
+      multiLine: true,
+      actions: [
+        {
+          label: toast.actionLabel,
+          color: 'white',
+          handler: () => {
+            void router.push(toast.targetPath);
+          },
+        },
+      ],
+    });
+  },
+);
+
+watch(
+  () => studentNotificationsStore.nextAttendanceToast?.key,
+  () => {
+    const toast = studentNotificationsStore.consumeAttendanceToast();
+
+    if (!toast) {
+      return;
+    }
+
+    $q.notify({
+      type: 'positive',
+      icon: toast.markType === 'entry' ? 'login' : 'logout',
+      message: toast.message,
+      timeout: 3200,
+    });
+  },
 );
 
 onMounted(() => {

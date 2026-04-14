@@ -133,6 +133,7 @@ import {
   markAnnouncementAsRead,
 } from 'src/services/api/announcements-api';
 import { useSessionStore } from 'src/stores/session-store';
+import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
 import type { AnnouncementDetail } from 'src/types/announcements';
 import {
   formatAnnouncementDate,
@@ -151,6 +152,7 @@ type FeedbackState = {
 const route = useRoute();
 const router = useRouter();
 const sessionStore = useSessionStore();
+const studentNotificationsStore = useStudentNotificationsStore();
 
 const announcement = ref<AnnouncementDetail | null>(null);
 const feedback = ref<FeedbackState | null>(null);
@@ -164,6 +166,10 @@ async function loadAnnouncement(): Promise<void> {
     const announcementId = String(route.params.id);
     announcement.value = await getAnnouncementDetail(announcementId);
     await markAnnouncementAsRead(announcementId);
+
+    if (sessionStore.user?.role === 'student') {
+      await studentNotificationsStore.refreshAnnouncements({ allowToast: false });
+    }
   } catch (error) {
     announcement.value = null;
     feedback.value = {
