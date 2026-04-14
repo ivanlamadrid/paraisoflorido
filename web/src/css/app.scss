@@ -2795,9 +2795,9 @@ body {
   }
 
   .app-toolbar {
-    min-height: 64px;
-    padding-top: 8px;
-    padding-bottom: 8px;
+    min-height: 56px;
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
 
   .app-toolbar__content {
@@ -2806,14 +2806,9 @@ body {
   }
 
   .app-toolbar__main {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 10px;
-  }
-
-  .app-toolbar__actions {
-    justify-content: space-between;
-    max-width: none;
+    gap: 12px;
   }
 
   .app-sidebar__inner {
@@ -2822,10 +2817,6 @@ body {
 
   .app-toolbar__year-chip {
     display: none;
-  }
-
-  .app-toolbar__logout {
-    margin-left: auto;
   }
 
   .role-section-view {
@@ -2906,20 +2897,7 @@ body {
     align-items: flex-start;
   }
 
-  .app-toolbar__actions {
-    padding: 6px 8px;
-  }
-
-  .app-toolbar__account {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .app-toolbar__role-chip {
-    max-width: 140px;
-  }
-
-  .app-toolbar__session-copy {
+  .app-toolbar__mobile-brand {
     min-width: 0;
   }
 
@@ -3176,35 +3154,8 @@ body {
   }
 
   .app-toolbar__content {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
     align-items: center;
-  }
-
-  .app-toolbar__main {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 12px;
-  }
-
-  .app-toolbar__actions {
-    justify-content: flex-end;
-    max-width: min(100%, 440px);
-    gap: 8px;
-  }
-
-  .app-toolbar__account {
-    max-width: 280px;
-  }
-
-  .app-toolbar__session-copy {
-    max-width: 160px;
-  }
-
-  .app-toolbar__logout {
-    margin-left: 0;
-  }
-
-  .app-toolbar__actions {
-    gap: 12px;
   }
 
   .classroom-stats-grid {

@@ -66,7 +66,7 @@
           </div>
 
           <q-btn
-            v-if="isPhone && sessionStore.user && !isSidebarMini"
+            v-if="!isDesktop && sessionStore.user && !isSidebarMini"
             flat
             color="primary"
             icon="logout"
@@ -94,7 +94,7 @@
               @click="toggleSidebar"
             />
 
-            <div v-if="isPhone" class="app-toolbar__mobile-brand">
+            <div v-if="!isDesktop" class="app-toolbar__mobile-brand">
               <SchoolMark
                 compact
                 :school-name="institutionStore.schoolName"
@@ -103,7 +103,7 @@
             </div>
           </div>
 
-          <div v-if="sessionStore.user" class="app-toolbar__actions">
+          <div v-if="sessionStore.user && isDesktop" class="app-toolbar__actions">
             <q-chip
               v-if="institutionStore.settings"
               class="ui-stat-chip app-toolbar__year-chip gt-xs"
@@ -131,7 +131,6 @@
             </div>
 
             <q-btn
-              v-if="!isPhone"
               flat
               color="primary"
               icon="logout"
@@ -194,7 +193,7 @@ const shellIcons = {
   sidebarMobile: 'menu',
 } as const;
 
-const { isDesktop, isPhone } = useResponsiveDevice();
+const { isDesktop } = useResponsiveDevice();
 
 const roleLabel = computed(() => {
   if (!sessionStore.user) {
