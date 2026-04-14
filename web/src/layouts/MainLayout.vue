@@ -94,7 +94,7 @@
               @click="toggleSidebar"
             />
 
-            <div class="lt-md app-toolbar__mobile-brand">
+            <div v-if="isPhone" class="app-toolbar__mobile-brand">
               <SchoolMark
                 compact
                 :school-name="institutionStore.schoolName"
@@ -157,6 +157,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
 import SchoolMark from 'components/ui/SchoolMark.vue';
+import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { useInstitutionStore } from 'src/stores/institution-store';
 import { useSessionStore } from 'src/stores/session-store';
 import type { UserRole } from 'src/types/session';
@@ -193,8 +194,7 @@ const shellIcons = {
   sidebarMobile: 'menu',
 } as const;
 
-const isDesktop = computed(() => $q.screen.gt.sm);
-const isPhone = computed(() => $q.screen.width < 768);
+const { isDesktop, isPhone } = useResponsiveDevice();
 
 const roleLabel = computed(() => {
   if (!sessionStore.user) {

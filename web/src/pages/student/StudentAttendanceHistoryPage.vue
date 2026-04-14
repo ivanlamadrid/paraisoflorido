@@ -1,5 +1,8 @@
 ﻿<template>
-  <q-page class="student-history-page">
+  <q-page
+    class="student-history-page"
+    :class="{ 'student-history-page--compact-tablet': isCompactTablet }"
+  >
     <div class="ui-page-shell">
       <PageIntroCard
         eyebrow="Área del estudiante"
@@ -291,6 +294,7 @@ import StudentQrCredentialCard from 'components/student/StudentQrCredentialCard.
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import { getMyStudentInstitutionalProfile } from 'src/services/api/students-api';
@@ -329,6 +333,7 @@ type StudentSection = 'today' | 'history' | 'qr' | 'account';
 const sessionStore = useSessionStore();
 const route = useRoute();
 const router = useRouter();
+const { isCompactTablet } = useResponsiveDevice();
 const today = new Date().toISOString().slice(0, 10);
 const defaultStudentSection: StudentSection = 'today';
 

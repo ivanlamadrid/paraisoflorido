@@ -1,5 +1,8 @@
 <template>
-  <div class="role-section-nav">
+  <div
+    class="role-section-nav"
+    :class="{ 'role-section-nav--compact-tablet': isCompactTablet }"
+  >
     <div v-if="showInlineTabs" class="role-section-nav__desktop">
       <q-tabs
         :model-value="modelValue"
@@ -54,7 +57,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useQuasar } from 'quasar';
+import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 
 export type SectionNavItem = {
   value: string;
@@ -74,9 +77,14 @@ const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
-const $q = useQuasar();
-const screenWidth = computed(() => $q.screen.width);
-const showBottomNav = computed(() => screenWidth.value < 1024);
+const { isPhone, isCompactTablet, isDesktop } = useResponsiveDevice();
+const showBottomNav = computed(() => {
+  if (!props.showDesktopTabs) {
+    return !isDesktop.value;
+  }
+
+  return isPhone.value || isCompactTablet.value;
+});
 const showInlineTabs = computed(
   () => !showBottomNav.value && props.showDesktopTabs,
 );

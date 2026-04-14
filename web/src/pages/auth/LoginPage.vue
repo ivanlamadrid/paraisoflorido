@@ -1,6 +1,9 @@
 ﻿<template>
   <q-page class="auth-page" :style-fn="authPageStyleFn">
-    <div class="auth-page__stack">
+    <div
+      class="auth-page__stack"
+      :class="{ 'auth-page__stack--compact-tablet': isCompactTablet }"
+    >
       <q-card flat bordered class="auth-card auth-card--login">
         <q-card-section class="auth-card__top">
           <div class="ui-eyebrow">Acceso institucional</div>
@@ -88,7 +91,11 @@
         </q-card-section>
       </q-card>
 
-      <AuthInstitutionPanel class="lt-md q-mt-lg" embedded />
+      <AuthInstitutionPanel
+        class="lt-md q-mt-lg"
+        :class="{ 'auth-institution-panel--compact-tablet': isCompactTablet }"
+        embedded
+      />
     </div>
   </q-page>
 </template>
@@ -98,12 +105,14 @@ import { nextTick, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AuthInstitutionPanel from 'components/auth/AuthInstitutionPanel.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import { getDefaultRouteForUser, useSessionStore } from 'src/stores/session-store';
 
 const router = useRouter();
 const sessionStore = useSessionStore();
 const usernameInputRef = ref<{ focus: () => void } | null>(null);
+const { isCompactTablet } = useResponsiveDevice();
 
 const form = reactive({
   username: '',

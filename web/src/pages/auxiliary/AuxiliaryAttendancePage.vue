@@ -1,5 +1,8 @@
 ﻿<template>
-  <q-page class="auxiliary-page">
+  <q-page
+    class="auxiliary-page"
+    :class="{ 'auxiliary-page--compact-tablet': isCompactTablet }"
+  >
     <div class="ui-page-shell">
       <PageIntroCard
         eyebrow="Operación diaria"
@@ -620,7 +623,7 @@
               </div>
 
               <div class="lt-md q-mt-lg">
-                <div class="role-section-view">
+                <div class="role-section-view auxiliary-daily-mobile-list">
                   <article
                     v-for="item in dailyItems"
                     :key="`${item.studentId}-mobile`"
@@ -1379,6 +1382,7 @@ import StudentOperationalProfilePanel from 'components/student/StudentOperationa
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import {
   correctAttendanceRecord,
   exportAttendance,
@@ -1465,6 +1469,7 @@ const defaultAuxiliarySection: AuxiliarySection = 'gate';
 const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
+const { isCompactTablet } = useResponsiveDevice();
 const institutionStore = useInstitutionStore();
 const sessionStore = useSessionStore();
 
