@@ -870,6 +870,10 @@ body {
   padding: 6px;
 }
 
+.role-section-nav__desktop {
+  width: 100%;
+}
+
 .role-section-nav__tab {
   min-height: 52px;
   border-radius: 18px;
@@ -3056,6 +3060,67 @@ body {
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
+  .auth-layout__shell {
+    width: min(100%, 760px);
+  }
+
+  .auth-page__stack {
+    width: min(100%, 720px);
+    display: grid;
+    gap: 18px;
+  }
+
+  .auth-page__stack > .auth-institution-panel--embedded {
+    order: -1;
+    margin-top: 0 !important;
+  }
+
+  .auth-card__info-grid,
+  .auth-institution-panel--embedded .auth-institution-panel__info-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auth-institution-panel--embedded .auth-institution-panel__body {
+    padding: 20px 22px;
+  }
+
+  .auth-institution-panel--embedded .auth-institution-panel__title {
+    margin-top: 16px;
+    font-size: 1.36rem;
+  }
+
+  .app-toolbar {
+    min-height: 58px;
+  }
+
+  .app-toolbar__content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .app-toolbar__main {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .app-toolbar__actions {
+    justify-content: flex-end;
+    max-width: min(100%, 440px);
+    gap: 8px;
+  }
+
+  .app-toolbar__account {
+    max-width: 280px;
+  }
+
+  .app-toolbar__session-copy {
+    max-width: 160px;
+  }
+
+  .app-toolbar__logout {
+    margin-left: 0;
+  }
+
   .app-toolbar__actions {
     gap: 12px;
   }
@@ -3127,6 +3192,16 @@ body {
   .auxiliary-context-form__secondary {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .student-profile-dialog-card {
+    width: min(100vw - 40px, 960px);
+    max-height: min(92dvh, 960px);
+    border-radius: 24px;
+  }
+
+  .student-profile-dialog-card--institutional {
+    width: min(100vw - 40px, 1020px);
   }
 }
 

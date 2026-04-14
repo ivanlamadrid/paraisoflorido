@@ -690,7 +690,7 @@ const studentFeedback = ref<FeedbackState | null>(null);
 const studentFollowUpFeedback = ref<FeedbackState | null>(null);
 
 const isStudentDialogSideSheet = computed(() => $q.screen.gt.md);
-const isStudentDialogMaximized = computed(() => $q.screen.lt.md);
+const isStudentDialogMaximized = computed(() => $q.screen.width < 768);
 const selectedAssignment = computed(
   () =>
     tutorAssignments.value.find((assignment) => getAssignmentKey(assignment) === selectedAssignmentKey.value) ??

@@ -1,8 +1,7 @@
 <template>
   <div class="role-section-nav">
-    <div class="gt-sm role-section-nav__desktop">
+    <div v-if="showInlineTabs" class="role-section-nav__desktop">
       <q-tabs
-        v-if="showDesktopTabs"
         :model-value="modelValue"
         align="left"
         indicator-color="primary"
@@ -25,7 +24,7 @@
     </div>
 
     <q-page-sticky
-      v-if="isMobile"
+      v-if="showBottomNav"
       position="bottom"
       :offset="[0, 10]"
       class="role-section-nav__mobile"
@@ -63,7 +62,7 @@ export type SectionNavItem = {
   icon: string;
 };
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: string;
   items: SectionNavItem[];
   showDesktopTabs?: boolean;
@@ -76,5 +75,13 @@ const emit = defineEmits<{
 }>();
 
 const $q = useQuasar();
-const isMobile = computed(() => $q.screen.lt.md);
+const screenWidth = computed(() => $q.screen.width);
+const isPhone = computed(() => screenWidth.value < 768);
+const isTablet = computed(
+  () => screenWidth.value >= 768 && screenWidth.value < 1024,
+);
+const showInlineTabs = computed(
+  () => isTablet.value || (!isPhone.value && props.showDesktopTabs),
+);
+const showBottomNav = computed(() => isPhone.value);
 </script>

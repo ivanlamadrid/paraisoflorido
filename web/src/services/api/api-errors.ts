@@ -10,6 +10,14 @@ export function getApiErrorStatus(error: unknown): number | null {
   return null;
 }
 
+export function isApiNetworkError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  return !error.response;
+}
+
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const responseData = error.response?.data;

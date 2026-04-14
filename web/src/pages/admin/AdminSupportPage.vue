@@ -1515,7 +1515,7 @@ const activeSection = ref<AdminSection>(defaultAdminSection);
 const isMobile = computed(() => $q.screen.lt.md);
 const isDirector = computed(() => sessionStore.user?.role === 'director');
 const isStudentDialogSideSheet = computed(() => $q.screen.gt.md);
-const isStudentDialogMaximized = computed(() => $q.screen.lt.md);
+const isStudentDialogMaximized = computed(() => $q.screen.width < 768);
 
 const adminSectionItems = computed<SectionNavItem[]>(() => [
   { value: 'support', label: 'Soporte', icon: 'support_agent' },

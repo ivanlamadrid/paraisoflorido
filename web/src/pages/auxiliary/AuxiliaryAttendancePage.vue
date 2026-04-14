@@ -1390,7 +1390,8 @@ import {
   registerAttendanceManual,
   syncOfflineAttendanceBatch,
 } from 'src/services/api/attendance-api';
-import { getApiErrorMessage, getApiErrorStatus } from 'src/services/api/api-errors';
+import { getApiErrorMessage, getApiErrorStatus, isApiNetworkError } from 'src/services/api/api-errors';
+import { getHealthStatus } from 'src/services/api/health-api';
 import {
   applyAuxiliaryOfflineSyncResult,
   findOfflineStudentByCode,
@@ -1509,8 +1510,11 @@ const attendanceAlertsSummary = ref<AttendanceAlertsSummary>(
   createEmptyAlertsSummary(),
 );
 const attendanceAlertsSearch = ref('');
-const isOnline = ref(
+const browserOnline = ref(
   typeof navigator === 'undefined' ? true : navigator.onLine,
+);
+const backendReachable = ref<boolean | null>(
+  browserOnline.value ? null : false,
 );
 const isLoadingOfflineContext = ref(false);
 const isSyncingOfflineQueue = ref(false);
@@ -1688,6 +1692,9 @@ const lastOfflineSyncLabel = computed(() => {
     timeZone: 'America/Lima',
   }).format(new Date(value));
 });
+const isOnline = computed(
+  () => browserOnline.value && backendReachable.value !== false,
+);
 const classroomIncidents = computed(
   () =>
     dailySummary.value.lateEntries +
@@ -1696,7 +1703,7 @@ const classroomIncidents = computed(
     dailySummary.value.incompleteRecords,
 );
 const isStudentDialogSideSheet = computed(() => $q.screen.gt.md);
-const isStudentDialogMaximized = computed(() => $q.screen.lt.md);
+const isStudentDialogMaximized = computed(() => $q.screen.width < 768);
 const canCorrectCurrentClassroom = computed(
   () => context.attendanceDate === getTodayInLima(),
 );
@@ -2121,6 +2128,64 @@ function refreshOfflineState(): void {
   offlineSyncMeta.value = getAuxiliaryOfflineSyncMeta();
 }
 
+function syncBrowserConnectivity(): void {
+  if (typeof navigator === 'undefined') {
+    browserOnline.value = true;
+    return;
+  }
+
+  browserOnline.value = navigator.onLine;
+
+  if (!navigator.onLine) {
+    backendReachable.value = false;
+  }
+}
+
+function markBackendReachable(): void {
+  syncBrowserConnectivity();
+  backendReachable.value = true;
+}
+
+function markOfflineMode(): void {
+  syncBrowserConnectivity();
+  backendReachable.value = false;
+  refreshOfflineState();
+}
+
+function handleConnectivityFailure(error: unknown): void {
+  syncBrowserConnectivity();
+
+  if (!browserOnline.value || isApiNetworkError(error)) {
+    markOfflineMode();
+  }
+}
+
+async function refreshConnectivityStatus(probeBackend = false): Promise<boolean> {
+  syncBrowserConnectivity();
+
+  if (!browserOnline.value) {
+    markOfflineMode();
+    return false;
+  }
+
+  if (!probeBackend) {
+    if (backendReachable.value === null) {
+      backendReachable.value = true;
+    }
+
+    return true;
+  }
+
+  try {
+    await getHealthStatus();
+    backendReachable.value = true;
+    return true;
+  } catch {
+    markOfflineMode();
+    return false;
+  }
+}
+
 async function loadOfflineContext(): Promise<void> {
   if (!isOnline.value) {
     refreshOfflineState();
@@ -2131,13 +2196,17 @@ async function loadOfflineContext(): Promise<void> {
 
   try {
     const snapshot = await getAttendanceOfflineContext(context.attendanceDate);
+    markBackendReachable();
     storeAuxiliaryOfflineContextSnapshot(snapshot);
     refreshOfflineState();
   } catch (error) {
+    handleConnectivityFailure(error);
     offlineSyncFeedback.value = {
       type: 'warning',
       title: 'No se pudo actualizar el contexto offline',
-      message: getApiErrorMessage(error),
+      message: isOnline.value
+        ? getApiErrorMessage(error)
+        : 'No se pudo alcanzar el servidor. Se mantiene el último contexto guardado en este dispositivo.',
     };
   } finally {
     isLoadingOfflineContext.value = false;
@@ -2214,6 +2283,7 @@ async function syncPendingOfflineQueue(): Promise<void> {
       })),
     );
 
+    markBackendReachable();
     applyAuxiliaryOfflineSyncResult(response);
     refreshOfflineState();
 
@@ -2236,10 +2306,13 @@ async function syncPendingOfflineQueue(): Promise<void> {
       loadAttendanceAlerts(),
     ]);
   } catch (error) {
+    handleConnectivityFailure(error);
     offlineSyncFeedback.value = {
-      type: 'error',
+      type: isOnline.value ? 'error' : 'warning',
       title: 'No se pudieron sincronizar los pendientes',
-      message: getApiErrorMessage(error),
+      message: isOnline.value
+        ? getApiErrorMessage(error)
+        : 'La conexión se perdió antes de sincronizar. Los pendientes siguen guardados localmente.',
     };
   } finally {
     isSyncingOfflineQueue.value = false;
@@ -2286,15 +2359,19 @@ async function loadDailyAttendance(): Promise<void> {
 
   try {
     const response = await getDailyAttendance(buildDailyQuery());
+    markBackendReachable();
     dailyItems.value = response.items;
     dailySummary.value = response.summary;
   } catch (error) {
+    handleConnectivityFailure(error);
     dailyItems.value = [];
     dailySummary.value = createEmptyDailySummary();
     dailyFeedback.value = {
-      type: 'error',
-      title: 'No se pudo cargar el aula',
-      message: getApiErrorMessage(error),
+      type: isOnline.value ? 'error' : 'info',
+      title: isOnline.value ? 'No se pudo cargar el aula' : 'Modo sin conexión',
+      message: isOnline.value
+        ? getApiErrorMessage(error)
+        : 'El detalle completo del aula se actualizará cuando recuperes internet. Mientras tanto puedes seguir registrando pendientes con el snapshot local.',
     };
   } finally {
     isLoadingDaily.value = false;
@@ -2338,15 +2415,19 @@ async function loadAttendanceAlerts(): Promise<void> {
 
     const response = await getAttendanceAlerts(query);
 
+    markBackendReachable();
     attendanceAlerts.value = response.items;
     attendanceAlertsSummary.value = response.summary;
   } catch (error) {
+    handleConnectivityFailure(error);
     attendanceAlerts.value = [];
     attendanceAlertsSummary.value = createEmptyAlertsSummary();
     attendanceAlertsFeedback.value = {
-      type: 'error',
-      title: 'No se pudieron cargar las alertas',
-      message: getApiErrorMessage(error),
+      type: isOnline.value ? 'error' : 'info',
+      title: isOnline.value ? 'No se pudieron cargar las alertas' : 'Alertas no disponibles sin conexión',
+      message: isOnline.value
+        ? getApiErrorMessage(error)
+        : 'Las alertas del aula volverán a cargarse cuando recuperes internet.',
     };
   } finally {
     isLoadingAttendanceAlerts.value = false;
@@ -2436,6 +2517,7 @@ async function handleScanSubmit(): Promise<void> {
     };
     const response = await registerAttendanceByScan(scanPayload);
 
+    markBackendReachable();
     scanFeedback.value = {
       type: 'success',
       title:
@@ -2446,6 +2528,7 @@ async function handleScanSubmit(): Promise<void> {
     };
     scanForm.studentCode = '';
   } catch (error) {
+    handleConnectivityFailure(error);
     const status = getApiErrorStatus(error);
     scanFeedback.value = {
       type: status === 409 || status === 422 ? 'warning' : 'error',
@@ -2516,6 +2599,7 @@ async function handleManualRegister(item: DailyAttendanceItem): Promise<void> {
     };
 
     const response = await registerAttendanceManual(payload);
+    markBackendReachable();
     dailyFeedback.value = {
       type: 'success',
       title:
@@ -2531,6 +2615,7 @@ async function handleManualRegister(item: DailyAttendanceItem): Promise<void> {
       loadOfflineContext(),
     ]);
   } catch (error) {
+    handleConnectivityFailure(error);
     const status = getApiErrorStatus(error);
     dailyFeedback.value = {
       type: status === 409 || status === 422 ? 'warning' : 'error',
@@ -2611,6 +2696,7 @@ async function handleSubmitCorrection(): Promise<void> {
       shift: context.shift,
     });
 
+    markBackendReachable();
     dailyFeedback.value = {
       type: 'success',
       title:
@@ -2623,6 +2709,7 @@ async function handleSubmitCorrection(): Promise<void> {
     closeCorrectionDialog();
     await Promise.all([loadDailyAttendance(), loadAttendanceAlerts()]);
   } catch (error) {
+    handleConnectivityFailure(error);
     correctionFeedback.value = createCorrectionErrorFeedback(error);
   } finally {
     isSavingCorrection.value = false;
@@ -2643,6 +2730,7 @@ async function handleExportAttendance(format: AttendanceExportFormat): Promise<v
       format,
     });
 
+    markBackendReachable();
     downloadBlobFile(blob, fileName);
     dailyFeedback.value = {
       type: 'success',
@@ -2650,6 +2738,7 @@ async function handleExportAttendance(format: AttendanceExportFormat): Promise<v
       message: `La descarga de ${fileName} comenzó correctamente para el aula activa.`,
     };
   } catch (error) {
+    handleConnectivityFailure(error);
     dailyFeedback.value = {
       type: 'error',
       title: 'No se pudo exportar la asistencia',
@@ -2695,7 +2784,12 @@ function resetAttendanceAlertsSearch(): void {
 }
 
 async function handleReconnect(): Promise<void> {
-  isOnline.value = true;
+  const canReachBackend = await refreshConnectivityStatus(true);
+
+  if (!canReachBackend) {
+    return;
+  }
+
   await Promise.all([
     loadOfflineContext(),
     loadDailyAttendance(),
@@ -2708,8 +2802,7 @@ async function handleReconnect(): Promise<void> {
 }
 
 function handleDisconnect(): void {
-  isOnline.value = false;
-  refreshOfflineState();
+  markOfflineMode();
 }
 
 function handleOnlineEvent(): void {
@@ -2724,7 +2817,9 @@ async function handleOpenStudent(studentId: string): Promise<void> {
 
   try {
     selectedStudentDetail.value = await getStudentDetail(studentId);
+    markBackendReachable();
   } catch (error) {
+    handleConnectivityFailure(error);
     studentDetailFeedback.value = {
       type: 'error',
       title: 'No se pudo cargar la ficha del estudiante',
@@ -2792,28 +2887,32 @@ watch(
 
 onMounted(async () => {
   activeSection.value = normalizeAuxiliarySection(route.query.section);
-
-  try {
-    const settings = await institutionStore.loadSettings();
-
-    if (settings) {
-      context.schoolYear = settings.activeSchoolYear;
-      restorePersistedClassroomContext();
-      ensureContextMatchesInstitution(settings);
-    }
-  } catch (error) {
-    dailyFeedback.value = {
-      type: 'error',
-      title: 'No se pudo cargar la configuración institucional',
-      message: getApiErrorMessage(error),
-    };
-  }
-
+  restorePersistedClassroomContext();
   restorePersistedGateMode();
   persistClassroomContext();
   refreshOfflineState();
   window.addEventListener('online', handleOnlineEvent);
   window.addEventListener('offline', handleDisconnect);
+
+  const canReachBackend = await refreshConnectivityStatus(true);
+
+  if (canReachBackend) {
+    try {
+      const settings = await institutionStore.loadSettings();
+
+      if (settings) {
+        context.schoolYear = settings.activeSchoolYear;
+        ensureContextMatchesInstitution(settings);
+      }
+    } catch (error) {
+      dailyFeedback.value = {
+        type: 'error',
+        title: 'No se pudo cargar la configuración institucional',
+        message: getApiErrorMessage(error),
+      };
+    }
+  }
+
   await Promise.all([
     loadOfflineContext(),
     loadDailyAttendance(),

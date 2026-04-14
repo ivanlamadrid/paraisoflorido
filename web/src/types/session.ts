@@ -24,6 +24,11 @@ export interface LoginResponse {
   user: SessionUser;
 }
 
+export interface StoredSession {
+  accessToken: string;
+  user: SessionUser;
+}
+
 export interface ChangeInitialPasswordPayload {
   currentPassword: string;
   newPassword: string;

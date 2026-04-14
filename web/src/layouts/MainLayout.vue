@@ -562,7 +562,9 @@ watch(
 
 onMounted(() => {
   if (sessionStore.isAuthenticated) {
-    void institutionStore.loadSettings();
+    void institutionStore.loadSettings().catch(() => {
+      // The role pages handle their own offline feedback when needed.
+    });
   }
 });
 </script>
