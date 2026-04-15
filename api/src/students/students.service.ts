@@ -16,6 +16,7 @@ import {
   In,
   Repository,
 } from 'typeorm';
+import { randomUUID } from 'crypto';
 import * as XLSX from 'xlsx';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AttendanceDayStatus } from '../attendance/entities/attendance-day-status.entity';
@@ -103,6 +104,18 @@ type StudentImportValidationResult = {
   validRows: Array<StudentImportRawRow & { code: string | null }>;
 };
 
+type StudentImportSession = {
+  token: string;
+  createdByUserId: string;
+  schoolYear: number;
+  fileName: string;
+  sheetName: string;
+  rows: StudentImportPreviewRowDto[];
+  summary: StudentImportValidationSummary;
+  validRows: Array<StudentImportRawRow & { code: string | null }>;
+  expiresAt: number;
+};
+
 type StudentExportFile = {
   fileName: string;
   contentType: string;
@@ -139,11 +152,17 @@ const STUDENT_EXPORT_HEADERS = [
   'Estado',
 ] as const satisfies ReadonlyArray<keyof StudentExportRow>;
 
+const STUDENT_IMPORT_TOKEN_TTL_MS = 15 * 60 * 1000;
+
 @Injectable()
 export class StudentsService {
   private readonly logger = new Logger(StudentsService.name);
   private hasStudentContactsTable = false;
   private hasLoggedMissingContactsTable = false;
+  private readonly studentImportSessions = new Map<
+    string,
+    StudentImportSession
+  >();
 
   constructor(
     @InjectRepository(AttendanceRecord)
@@ -292,6 +311,7 @@ export class StudentsService {
 
   async previewStudentsImport(
     file: { buffer: Buffer; originalname: string } | undefined,
+    authUser: AuthenticatedRequestUser,
   ): Promise<StudentImportPreviewResponseDto> {
     if (!file?.buffer || !file.originalname) {
       throw new BadRequestException(
@@ -317,11 +337,22 @@ export class StudentsService {
       schoolYear,
       institutionSettings,
     );
+    const session = this.storeStudentImportSession({
+      createdByUserId: authUser.id,
+      schoolYear,
+      fileName: file.originalname,
+      sheetName: firstSheetName,
+      rows: validation.rows,
+      summary: validation.summary,
+      validRows: validation.validRows,
+    });
 
     return {
       fileName: file.originalname,
       sheetName: firstSheetName,
       schoolYear,
+      importToken: session.token,
+      expiresAt: new Date(session.expiresAt).toISOString(),
       rows: validation.rows,
       summary: validation.summary,
     };
@@ -331,25 +362,28 @@ export class StudentsService {
     dto: ImportStudentsDto,
     createdBy: AuthenticatedRequestUser,
   ): Promise<StudentImportResultResponseDto> {
-    const schoolYear =
-      dto.schoolYear ?? (await this.institutionService.getActiveSchoolYear());
-    const institutionSettings = await this.institutionService.getSettings();
-    const rawRows: StudentImportRawRow[] = dto.rows.map((row, index) => ({
-      rowNumber: row.rowNumber ?? index + 1,
-      code: row.code?.trim().toLowerCase() ?? null,
-      firstName: row.firstName.trim(),
-      lastName: row.lastName.trim(),
-      document: row.document?.trim() || null,
-      grade: row.grade,
-      section: row.section.trim().toUpperCase(),
-      shift: row.shift,
-      isActive: row.isActive ?? true,
-    }));
-    const validation = await this.validateStudentImportRows(
-      rawRows,
-      schoolYear,
-      institutionSettings,
+    const previewSession = this.consumeStudentImportSession(
+      dto.importToken,
+      createdBy.id,
     );
+    const schoolYear = previewSession.schoolYear;
+    const validation: StudentImportValidationResult = {
+      schoolYear,
+      rows: previewSession.rows,
+      summary: previewSession.summary,
+      validRows: previewSession.validRows,
+    };
+    const rawRows = previewSession.rows.map((row) => ({
+      rowNumber: row.rowNumber,
+      code: row.code,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      document: row.document,
+      grade: row.grade,
+      section: row.section,
+      shift: row.shift,
+      isActive: row.isActive,
+    }));
 
     if (validation.validRows.length === 0) {
       return {
@@ -2901,6 +2935,70 @@ export class StudentsService {
     }
 
     return `${parts.join('_')}.${format}`;
+  }
+
+  private storeStudentImportSession(input: {
+    createdByUserId: string;
+    schoolYear: number;
+    fileName: string;
+    sheetName: string;
+    rows: StudentImportPreviewRowDto[];
+    summary: StudentImportValidationSummary;
+    validRows: Array<StudentImportRawRow & { code: string | null }>;
+  }): StudentImportSession {
+    this.cleanupExpiredStudentImportSessions();
+
+    const token = randomUUID();
+    const session: StudentImportSession = {
+      token,
+      createdByUserId: input.createdByUserId,
+      schoolYear: input.schoolYear,
+      fileName: input.fileName,
+      sheetName: input.sheetName,
+      rows: input.rows,
+      summary: input.summary,
+      validRows: input.validRows,
+      expiresAt: Date.now() + STUDENT_IMPORT_TOKEN_TTL_MS,
+    };
+
+    this.studentImportSessions.set(token, session);
+
+    return session;
+  }
+
+  private consumeStudentImportSession(
+    token: string,
+    userId: string,
+  ): StudentImportSession {
+    this.cleanupExpiredStudentImportSessions();
+
+    const session = this.studentImportSessions.get(token);
+
+    if (!session) {
+      throw new BadRequestException(
+        'La validacion previa ya vencio o no esta disponible. Analiza el archivo nuevamente antes de importar.',
+      );
+    }
+
+    if (session.createdByUserId !== userId) {
+      this.studentImportSessions.delete(token);
+      throw new ForbiddenException(
+        'La validacion previa de esta importacion pertenece a otra sesion administrativa.',
+      );
+    }
+
+    this.studentImportSessions.delete(token);
+    return session;
+  }
+
+  private cleanupExpiredStudentImportSessions(): void {
+    const now = Date.now();
+
+    for (const [token, session] of this.studentImportSessions.entries()) {
+      if (session.expiresAt <= now) {
+        this.studentImportSessions.delete(token);
+      }
+    }
   }
 
   private sanitizeStudentFileNamePart(value: string): string {

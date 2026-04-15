@@ -201,7 +201,6 @@
 import { computed, ref, watch } from 'vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
 import type {
-  ImportStudentsPayload,
   StudentImportPreviewResponse,
   StudentImportPreviewRow,
   StudentImportResultResponse,
@@ -224,7 +223,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   preview: [file: File];
-  confirm: [payload: ImportStudentsPayload];
+  confirm: [payload: { importToken: string }];
   clear: [];
 }>();
 
@@ -263,18 +262,7 @@ function handleImport(): void {
   }
 
   emit('confirm', {
-    schoolYear: props.preview.schoolYear,
-    rows: props.preview.rows.filter((row) => row.isValid).map((row) => ({
-      rowNumber: row.rowNumber,
-      code: row.code,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      document: row.document,
-      grade: row.grade as number,
-      section: row.section as string,
-      shift: row.shift as 'morning' | 'afternoon',
-      isActive: row.isActive,
-    })),
+    importToken: props.preview.importToken,
   });
 }
 

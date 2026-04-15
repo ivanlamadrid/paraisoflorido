@@ -82,9 +82,16 @@ export class StudentsController {
 
   @Post('import/preview')
   @Roles(UserRole.DIRECTOR, UserRole.SECRETARY)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
   previewStudentsImport(
     @UploadedFile() file: unknown,
+    @AuthUser() authUser: AuthenticatedRequestUser,
   ): Promise<StudentImportPreviewResponseDto> {
     return this.studentsService.previewStudentsImport(
       isStudentImportFile(file)
@@ -93,6 +100,7 @@ export class StudentsController {
             originalname: file.originalname,
           }
         : undefined,
+      authUser,
     );
   }
 

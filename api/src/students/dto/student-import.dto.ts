@@ -1,17 +1,15 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
-  ArrayMaxSize,
-  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
   MinLength,
-  ValidateNested,
 } from 'class-validator';
 import { StudentShift } from '../../common/enums/student-shift.enum';
 
@@ -71,6 +69,8 @@ export type StudentImportPreviewResponseDto = {
   fileName: string;
   sheetName: string;
   schoolYear: number;
+  importToken: string;
+  expiresAt: string;
   rows: StudentImportPreviewRowDto[];
   summary: {
     totalRows: number;
@@ -157,15 +157,6 @@ export class ImportStudentRowDto {
 }
 
 export class ImportStudentsDto {
-  @IsOptional()
-  @IsInt()
-  @Min(2000)
-  @Max(2100)
-  schoolYear?: number;
-
-  @IsArray()
-  @ArrayMaxSize(5000)
-  @ValidateNested({ each: true })
-  @Type(() => ImportStudentRowDto)
-  rows: ImportStudentRowDto[];
+  @IsUUID()
+  importToken: string;
 }

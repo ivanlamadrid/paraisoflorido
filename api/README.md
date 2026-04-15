@@ -61,6 +61,27 @@ $ npm run test:cov
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
+### Student import upload
+
+The student Excel import now uses a lightweight confirmation token after preview, so the final
+`POST /api/students/import` request stays small. The preview upload still sends the Excel file as
+multipart data, so the reverse proxy must allow a reasonable body size.
+
+Recommended Nginx setting for this API:
+
+```nginx
+client_max_body_size 10m;
+```
+
+This should be applied on the server or location that proxies the API, for example:
+
+```nginx
+location /api/ {
+  client_max_body_size 10m;
+  proxy_pass http://127.0.0.1:3000/api/;
+}
+```
+
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
 ```bash

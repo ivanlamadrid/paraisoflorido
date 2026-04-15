@@ -2867,10 +2867,10 @@ async function handleConfirmStudentsImport(
   studentImportFeedback.value = null;
   studentImportResult.value = null;
 
-  if (payload.rows.length === 0) {
+  if (!payload.importToken) {
     studentImportFeedback.value = {
       type: 'warning',
-      title: 'Sin filas para importar',
+      title: 'Preview no disponible',
       message: 'Analiza un archivo con estudiantes antes de continuar.',
     };
     return;

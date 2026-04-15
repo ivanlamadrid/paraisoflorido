@@ -136,6 +136,8 @@ export interface StudentImportPreviewResponse {
   fileName: string;
   sheetName: string;
   schoolYear: number;
+  importToken: string;
+  expiresAt: string;
   rows: StudentImportPreviewRow[];
   summary: {
     totalRows: number;
@@ -150,18 +152,7 @@ export interface StudentImportPreviewResponse {
 }
 
 export interface ImportStudentsPayload {
-  schoolYear?: number;
-  rows: Array<{
-    rowNumber?: number;
-    code?: string | null;
-    firstName: string;
-    lastName: string;
-    document?: string | null;
-    grade: number;
-    section: string;
-    shift: StudentShift;
-    isActive?: boolean;
-  }>;
+  importToken: string;
 }
 
 export interface StudentImportResultResponse {
