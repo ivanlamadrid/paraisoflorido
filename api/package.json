@@ -19,6 +19,7 @@
     "migration:run": "node --require ts-node/register --require tsconfig-paths/register ../node_modules/typeorm/cli.js -d src/database/data-source.ts migration:run",
     "migration:revert": "node --require ts-node/register --require tsconfig-paths/register ../node_modules/typeorm/cli.js -d src/database/data-source.ts migration:revert",
     "seed:initial": "node --require ts-node/register --require tsconfig-paths/register src/database/seeds/run-initial-load.ts",
+    "repair:student-codes": "node --require ts-node/register --require tsconfig-paths/register src/database/scripts/repair-student-codes-from-excel.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",

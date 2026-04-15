@@ -143,7 +143,9 @@ export interface StudentImportPreviewResponse {
     totalRows: number;
     validRows: number;
     invalidRows: number;
+    rowsWithProvidedCode: number;
     rowsWithoutCode: number;
+    rowsWithInvalidCode: number;
     rowsWithDuplicateCode: number;
     rowsWithDuplicateDocument: number;
     rowsWithInvalidClassroomData: number;

@@ -81,6 +81,12 @@ import { StudentContact } from './entities/student-contact.entity';
 import { StudentEnrollment } from './entities/student-enrollment.entity';
 import { StudentFollowUp } from './entities/student-follow-up.entity';
 import { Student } from './entities/student.entity';
+import {
+  extractGeneratedStudentSequence,
+  formatGeneratedStudentCode,
+  GENERATED_STUDENT_CODE_MAX_SEQUENCE,
+  isSupportedStudentCode,
+} from './student-code.util';
 
 type StudentImportRawRow = {
   rowNumber: number;
@@ -123,7 +129,7 @@ type StudentExportFile = {
 };
 
 type StudentExportRow = {
-  'Codigo (opcional al importar)': string;
+  'Username (codigo opcional al importar)': string;
   Nombres: string;
   Apellidos: string;
   Documento: string;
@@ -142,7 +148,7 @@ const STUDENT_IMPORT_REQUIRED_HEADERS = [
 ] as const;
 
 const STUDENT_EXPORT_HEADERS = [
-  'Codigo (opcional al importar)',
+  'Username (codigo opcional al importar)',
   'Nombres',
   'Apellidos',
   'Documento',
@@ -2222,9 +2228,17 @@ export class StudentsService {
       }
 
       if (
-        ['codigo', 'code', 'studentcode', 'codigodelestudiante'].includes(
-          normalizedHeader,
-        )
+        [
+          'codigo',
+          'code',
+          'studentcode',
+          'codigodelestudiante',
+          'codigoopcionalalimportar',
+          'username',
+          'usuario',
+          'user',
+          'usernamecodigoopcionalalimportar',
+        ].includes(normalizedHeader)
       ) {
         map.set('code', index);
       }
@@ -2474,7 +2488,9 @@ export class StudentsService {
       totalRows: rows.length,
       validRows: 0,
       invalidRows: 0,
+      rowsWithProvidedCode: 0,
       rowsWithoutCode: 0,
+      rowsWithInvalidCode: 0,
       rowsWithDuplicateCode: 0,
       rowsWithDuplicateDocument: 0,
       rowsWithInvalidClassroomData: 0,
@@ -2486,6 +2502,8 @@ export class StudentsService {
 
       if (!row.code) {
         summary.rowsWithoutCode += 1;
+      } else {
+        summary.rowsWithProvidedCode += 1;
       }
 
       if (
@@ -2502,11 +2520,11 @@ export class StudentsService {
         });
       }
 
-      if (row.code && !/^[a-z0-9][a-z0-9_-]{2,31}$/.test(row.code)) {
+      if (row.code && !isSupportedStudentCode(row.code)) {
         issues.push({
           code: 'invalid_code',
           message:
-            'El codigo debe usar solo letras, numeros, guion o guion bajo y tener entre 3 y 32 caracteres.',
+            'El codigo debe respetar el formato institucional uAAAA00000 o un codigo legacy valido con letras, numeros, guion o guion bajo.',
         });
       }
 
@@ -2582,6 +2600,10 @@ export class StudentsService {
 
       if (uniqueIssueCodes.has('duplicate_code')) {
         summary.rowsWithDuplicateCode += 1;
+      }
+
+      if (uniqueIssueCodes.has('invalid_code')) {
+        summary.rowsWithInvalidCode += 1;
       }
 
       if (uniqueIssueCodes.has('duplicate_document')) {
@@ -2698,20 +2720,13 @@ export class StudentsService {
     let currentSequence = 0;
 
     for (const code of sequenceCandidates) {
-      const match = code.match(
-        new RegExp(
-          `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d{4})$`,
-        ),
-      );
+      const sequence = extractGeneratedStudentSequence(code, schoolYear);
 
-      if (!match?.[1]) {
+      if (sequence === null) {
         continue;
       }
 
-      currentSequence = Math.max(
-        currentSequence,
-        Number.parseInt(match[1], 10),
-      );
+      currentSequence = Math.max(currentSequence, sequence);
     }
 
     const generatedCodes: string[] = [];
@@ -2719,13 +2734,13 @@ export class StudentsService {
     while (generatedCodes.length < quantity) {
       currentSequence += 1;
 
-      if (currentSequence > 9999) {
+      if (currentSequence > GENERATED_STUDENT_CODE_MAX_SEQUENCE) {
         throw new ServiceUnavailableException(
           `Se alcanzo el limite de codigos automaticos disponibles para el año ${schoolYear}.`,
         );
       }
 
-      const candidate = `${prefix}${String(currentSequence).padStart(4, '0')}`;
+      const candidate = formatGeneratedStudentCode(schoolYear, currentSequence);
 
       if (reservedCodeSet.has(candidate)) {
         continue;
@@ -2844,7 +2859,7 @@ export class StudentsService {
     enrollment: StudentEnrollment,
   ): StudentExportRow {
     return {
-      'Codigo (opcional al importar)': student.code,
+      'Username (codigo opcional al importar)': student.code,
       Nombres: student.firstName,
       Apellidos: student.lastName,
       Documento: student.document ?? '',
