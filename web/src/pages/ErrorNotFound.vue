@@ -5,9 +5,9 @@
       <div class="ui-eyebrow">Ruta no disponible</div>
       <div class="text-h2 text-weight-bold q-mt-sm">404</div>
       <p class="text-body1 text-grey-8 q-mt-md q-mb-lg">
-        La ruta que buscas no existe o ya no está disponible.
+        La ruta que buscas no existe o ya no esta disponible.
       </p>
-      <q-btn color="primary" label="Ir al inicio de sesión" no-caps to="/login" />
+      <q-btn color="primary" label="Ir al inicio" no-caps to="/" />
     </q-card>
   </div>
 </template>

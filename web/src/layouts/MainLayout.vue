@@ -570,7 +570,7 @@ function handleNavigate(item: ShellNavItem): void {
 
 function handleLogout(): void {
   sessionStore.logout();
-  void router.replace('/login');
+  void router.replace('/');
 }
 
 watch(

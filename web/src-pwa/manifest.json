@@ -8,7 +8,7 @@
   "theme_color": "#8d1f2d",
   "lang": "es-PE",
   "scope": "/",
-  "start_url": "/#/login",
+  "start_url": "/",
   "icons": [
     {
       "src": "icons/favicon-96x96.png",

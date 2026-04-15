@@ -3,10 +3,6 @@ import type { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/login',
-  },
-  {
-    path: '/login',
     component: () => import('layouts/AuthLayout.vue'),
     children: [
       {
@@ -17,6 +13,10 @@ const routes: RouteRecordRaw[] = [
         },
       },
     ],
+  },
+  {
+    path: '/login',
+    redirect: '/',
   },
   {
     path: '/cambiar-contrasena-inicial',

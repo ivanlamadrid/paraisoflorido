@@ -163,7 +163,7 @@ function canKeepPersistedSession(error: unknown): boolean {
 
 export function getDefaultRouteForUser(user: SessionUser | null): string {
   if (!user) {
-    return '/login';
+    return '/';
   }
 
   if (user.mustChangePassword) {

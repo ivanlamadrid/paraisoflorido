@@ -5,6 +5,7 @@ import {
   createWebHashHistory,
   createWebHistory,
 } from 'vue-router';
+import { setAuthFailureHandler } from 'boot/axios';
 import { pinia } from 'stores';
 import { getDefaultRouteForUser, useSessionStore } from 'src/stores/session-store';
 import routes from './routes';
@@ -26,6 +27,26 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
+  let isHandlingAuthFailure = false;
+
+  setAuthFailureHandler(() => {
+    if (isHandlingAuthFailure) {
+      return;
+    }
+
+    const sessionStore = useSessionStore(pinia);
+
+    if (!sessionStore.isAuthenticated) {
+      return;
+    }
+
+    isHandlingAuthFailure = true;
+    sessionStore.logout();
+    void Router.replace('/').finally(() => {
+      isHandlingAuthFailure = false;
+    });
+  });
+
   Router.beforeEach(async (to) => {
     const sessionStore = useSessionStore(pinia);
 
@@ -42,7 +63,7 @@ export default defineRouter(function (/* { store, ssrContext } */) {
 
     if (requiresAuth && !isAuthenticated) {
       return {
-        path: '/login',
+        path: '/',
       };
     }
 
