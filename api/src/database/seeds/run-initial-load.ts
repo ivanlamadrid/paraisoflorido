@@ -277,7 +277,7 @@ function buildDefaultInstitutionSettings(
       process.env.SCHOOL_NAME?.trim() ?? 'Colegio Paraiso Florido 3082',
     activeSchoolYear,
     initialStudentPassword:
-      process.env.INITIAL_STUDENT_PASSWORD?.trim() ?? 'Cambiar123',
+      process.env.INITIAL_STUDENT_PASSWORD?.trim() ?? 'paraiso3082',
     enabledTurns:
       enabledTurns.length > 0
         ? enabledTurns
@@ -509,21 +509,29 @@ async function upsertInstitutionSettings(
     settings.enabledGrades,
   );
 
-  const nextInitialStudentPassword =
-    initialSettings.initialStudentPassword?.trim() ??
-    process.env.INITIAL_STUDENT_PASSWORD?.trim() ??
-    '';
+  const explicitInitialStudentPassword =
+    input.institutionSettings?.initialStudentPassword?.trim() ?? '';
 
-  if (!nextInitialStudentPassword) {
-    throw new Error(
-      'INITIAL_STUDENT_PASSWORD es obligatorio para la carga inicial.',
+  if (explicitInitialStudentPassword) {
+    settings.initialStudentPasswordHash = await hashPassword(
+      explicitInitialStudentPassword,
     );
-  }
+    settings.initialStudentPasswordUpdatedAt = new Date();
+  } else if (!settings.initialStudentPasswordHash) {
+    const fallbackInitialStudentPassword =
+      process.env.INITIAL_STUDENT_PASSWORD?.trim() ?? '';
 
-  settings.initialStudentPasswordHash = await hashPassword(
-    nextInitialStudentPassword,
-  );
-  settings.initialStudentPasswordUpdatedAt = new Date();
+    if (!fallbackInitialStudentPassword) {
+      throw new Error(
+        'INITIAL_STUDENT_PASSWORD es obligatorio para la carga inicial.',
+      );
+    }
+
+    settings.initialStudentPasswordHash = await hashPassword(
+      fallbackInitialStudentPassword,
+    );
+    settings.initialStudentPasswordUpdatedAt = new Date();
+  }
 
   await institutionSettingsRepository.save(settings);
   return existingSettings ? 'updated' : 'created';

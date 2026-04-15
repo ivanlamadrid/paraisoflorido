@@ -2,7 +2,7 @@
   "institutionSettings": {
     "schoolName": "Colegio Paraiso Florido 3082",
     "activeSchoolYear": 2026,
-    "initialStudentPassword": "Cambiar123",
+    "initialStudentPassword": "paraiso3082",
     "enabledTurns": ["morning", "afternoon"],
     "enabledGrades": [1, 2],
     "sectionsByGrade": {

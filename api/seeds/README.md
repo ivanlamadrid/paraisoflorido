@@ -28,7 +28,7 @@ npm run seed:initial --workspace api
   "institutionSettings": {
     "schoolName": "Colegio Paraiso Florido 3082",
     "activeSchoolYear": 2026,
-    "initialStudentPassword": "Cambiar123",
+    "initialStudentPassword": "paraiso3082",
     "enabledTurns": ["morning", "afternoon"],
     "enabledGrades": [1, 2],
     "sectionsByGrade": {
@@ -66,6 +66,7 @@ npm run seed:initial --workspace api
 - `institutionSettings` permite dejar lista la configuracion institucional del colegio.
 - `schoolName`, `activeSchoolYear`, `enabledTurns`, `enabledGrades` y `sectionsByGrade` preparan la operacion del anio.
 - `initialStudentPassword` define la contrasena inicial general y se guarda con hash.
+- Si vuelves a ejecutar el seed sobre una base ya configurada y omites `institutionSettings.initialStudentPassword`, el sistema conserva la contrasena inicial vigente en lugar de pisarla.
 - `director`, `secretary` y `auxiliary` se crean o actualizan desde `adminUsers`.
 - Los estudiantes se crean o actualizan desde `students`.
 - El `username` del estudiante siempre sera su `code`.
