@@ -8,14 +8,26 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import type { AuthenticatedRequestUser } from '../auth/interfaces/authenticated-request-user.interface';
 import { AuthUser } from '../common/decorators/auth-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../common/enums/user-role.enum';
 import { CreateStudentDto } from './dto/create-student.dto';
+import { QueryStudentExportDto } from './dto/query-student-export.dto';
 import { QueryStudentFollowUpsOverviewDto } from './dto/query-student-follow-ups-overview.dto';
 import { QueryStudentsDto } from './dto/query-students.dto';
+import {
+  ImportStudentsDto,
+  StudentImportPreviewResponseDto,
+  StudentImportResultResponseDto,
+} from './dto/student-import.dto';
 import {
   CreateStudentFollowUpDto,
   UpdateStudentFollowUpDto,
@@ -37,6 +49,24 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { UpdateStudentSituationDto } from './dto/update-student-situation.dto';
 import { StudentsService } from './students.service';
 
+type StudentImportFile = {
+  buffer: Buffer;
+  originalname: string;
+};
+
+function isStudentImportFile(value: unknown): value is StudentImportFile {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    Buffer.isBuffer(candidate.buffer) &&
+    typeof candidate.originalname === 'string'
+  );
+}
+
 @Controller('students')
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
@@ -50,6 +80,31 @@ export class StudentsController {
     return this.studentsService.createStudent(dto, authUser);
   }
 
+  @Post('import/preview')
+  @Roles(UserRole.DIRECTOR, UserRole.SECRETARY)
+  @UseInterceptors(FileInterceptor('file'))
+  previewStudentsImport(
+    @UploadedFile() file: unknown,
+  ): Promise<StudentImportPreviewResponseDto> {
+    return this.studentsService.previewStudentsImport(
+      isStudentImportFile(file)
+        ? {
+            buffer: file.buffer,
+            originalname: file.originalname,
+          }
+        : undefined,
+    );
+  }
+
+  @Post('import')
+  @Roles(UserRole.DIRECTOR, UserRole.SECRETARY)
+  importStudents(
+    @Body() dto: ImportStudentsDto,
+    @AuthUser() authUser: AuthenticatedRequestUser,
+  ): Promise<StudentImportResultResponseDto> {
+    return this.studentsService.importStudents(dto, authUser);
+  }
+
   @Get()
   @Roles(UserRole.DIRECTOR, UserRole.SECRETARY, UserRole.AUXILIARY)
   listStudents(@Query() query: QueryStudentsDto): Promise<{
@@ -59,6 +114,24 @@ export class StudentsController {
     limit: number;
   }> {
     return this.studentsService.listStudents(query);
+  }
+
+  @Get('export')
+  @Roles(UserRole.DIRECTOR, UserRole.SECRETARY)
+  async exportStudents(
+    @Query() query: QueryStudentExportDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.studentsService.exportStudents(query);
+
+    response.setHeader('Content-Type', file.contentType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${file.fileName}"`,
+    );
+    response.setHeader('Cache-Control', 'no-store');
+
+    return new StreamableFile(file.buffer);
   }
 
   @Get('me')

@@ -3,12 +3,16 @@ import type {
   CreateStudentPayload,
   CreateStudentContactPayload,
   CreateStudentFollowUpPayload,
+  ImportStudentsPayload,
+  StudentExportQuery,
   StudentDetail,
   StudentContact,
   StudentConsent,
   StudentFollowUp,
   StudentFollowUpOverviewQuery,
   StudentFollowUpOverviewResponse,
+  StudentImportPreviewResponse,
+  StudentImportResultResponse,
   StudentProfile,
   StudentSummary,
   StudentsListResponse,
@@ -65,6 +69,74 @@ export async function createStudent(
 ): Promise<StudentDetail> {
   const { data } = await api.post<StudentDetail>('/students', payload);
   return data;
+}
+
+export async function previewStudentsImport(
+  file: File,
+): Promise<StudentImportPreviewResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const { data } = await api.post<StudentImportPreviewResponse>(
+    '/students/import/preview',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+
+  return data;
+}
+
+export async function importStudents(
+  payload: ImportStudentsPayload,
+): Promise<StudentImportResultResponse> {
+  const { data } = await api.post<StudentImportResultResponse>(
+    '/students/import',
+    payload,
+  );
+
+  return data;
+}
+
+function resolveStudentExportFileName(
+  contentDisposition: string | undefined,
+  query: StudentExportQuery,
+): string {
+  if (contentDisposition) {
+    const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+
+    if (utfMatch?.[1]) {
+      return decodeURIComponent(utfMatch[1]);
+    }
+
+    const simpleMatch = contentDisposition.match(/filename="([^"]+)"/i);
+
+    if (simpleMatch?.[1]) {
+      return simpleMatch[1];
+    }
+  }
+
+  return query.format === 'xlsx' ? 'estudiantes.xlsx' : 'estudiantes.csv';
+}
+
+export async function exportStudents(
+  query: StudentExportQuery,
+): Promise<{ blob: Blob; fileName: string }> {
+  const response = await api.get<Blob>('/students/export', {
+    params: query,
+    responseType: 'blob',
+  });
+
+  return {
+    blob: response.data,
+    fileName: resolveStudentExportFileName(
+      response.headers['content-disposition'] as string | undefined,
+      query,
+    ),
+  };
 }
 
 export async function updateStudent(

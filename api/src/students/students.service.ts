@@ -16,6 +16,7 @@ import {
   In,
   Repository,
 } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AttendanceDayStatus } from '../attendance/entities/attendance-day-status.entity';
 import { AttendanceRecord } from '../attendance/entities/attendance-record.entity';
@@ -28,14 +29,27 @@ import { StudentChangeType } from '../common/enums/student-change-type.enum';
 import { StudentEnrollmentStatus } from '../common/enums/student-enrollment-status.enum';
 import { StudentFollowUpCategory } from '../common/enums/student-follow-up-category.enum';
 import { StudentFollowUpRecordType } from '../common/enums/student-follow-up-record-type.enum';
+import { StudentShift } from '../common/enums/student-shift.enum';
 import { hashPassword } from '../common/utils/password.util';
 import { AuthenticatedRequestUser } from '../auth/interfaces/authenticated-request-user.interface';
+import { INSTITUTION_SETTINGS_ID } from '../institution/constants/institution.constants';
+import { InstitutionSetting } from '../institution/entities/institution-setting.entity';
 import { InstitutionService } from '../institution/institution.service';
 import { TutorAssignment } from '../users/entities/tutor-assignment.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
+import {
+  QueryStudentExportDto,
+  StudentExportFormat,
+} from './dto/query-student-export.dto';
 import { QueryStudentFollowUpsOverviewDto } from './dto/query-student-follow-ups-overview.dto';
 import { QueryStudentsDto } from './dto/query-students.dto';
+import {
+  ImportStudentsDto,
+  StudentImportPreviewResponseDto,
+  StudentImportPreviewRowDto,
+  StudentImportResultResponseDto,
+} from './dto/student-import.dto';
 import {
   CreateStudentFollowUpDto,
   UpdateStudentFollowUpDto,
@@ -66,6 +80,64 @@ import { StudentContact } from './entities/student-contact.entity';
 import { StudentEnrollment } from './entities/student-enrollment.entity';
 import { StudentFollowUp } from './entities/student-follow-up.entity';
 import { Student } from './entities/student.entity';
+
+type StudentImportRawRow = {
+  rowNumber: number;
+  code: string | null;
+  firstName: string;
+  lastName: string;
+  document: string | null;
+  grade: number | null;
+  section: string | null;
+  shift: StudentShift | null;
+  isActive: boolean;
+};
+
+type StudentImportValidationSummary =
+  StudentImportPreviewResponseDto['summary'];
+
+type StudentImportValidationResult = {
+  schoolYear: number;
+  rows: StudentImportPreviewRowDto[];
+  summary: StudentImportValidationSummary;
+  validRows: Array<StudentImportRawRow & { code: string | null }>;
+};
+
+type StudentExportFile = {
+  fileName: string;
+  contentType: string;
+  buffer: Buffer;
+};
+
+type StudentExportRow = {
+  'Codigo (opcional al importar)': string;
+  Nombres: string;
+  Apellidos: string;
+  Documento: string;
+  Grado: number | '';
+  Seccion: string;
+  Turno: string;
+  Estado: string;
+};
+
+const STUDENT_IMPORT_REQUIRED_HEADERS = [
+  'nombres',
+  'apellidos',
+  'grado',
+  'seccion',
+  'turno',
+] as const;
+
+const STUDENT_EXPORT_HEADERS = [
+  'Codigo (opcional al importar)',
+  'Nombres',
+  'Apellidos',
+  'Documento',
+  'Grado',
+  'Seccion',
+  'Turno',
+  'Estado',
+] as const satisfies ReadonlyArray<keyof StudentExportRow>;
 
 @Injectable()
 export class StudentsService {
@@ -128,37 +200,23 @@ export class StudentsService {
       const enrollmentsRepository = manager.getRepository(StudentEnrollment);
       const changeLogsRepository = manager.getRepository(StudentChangeLog);
 
-      const existingStudent = await studentsRepository.findOne({
-        where: { code: dto.code },
-      });
-
-      if (existingStudent) {
-        throw new ConflictException(
-          'El codigo ingresado ya esta asignado a otro estudiante.',
-        );
-      }
-
-      const existingUser = await usersRepository.findOne({
-        where: { username: dto.code },
-      });
-
-      if (existingUser) {
-        throw new ConflictException(
-          'El codigo ingresado ya esta asignado a otro usuario.',
-        );
-      }
-
       await this.ensureDocumentIsUnique(dto.document ?? null, null, manager);
+      const [generatedCode] = await this.allocateStudentCodes(
+        manager,
+        schoolYear,
+        1,
+      );
 
       const initialPasswordHash =
         await this.institutionService.getInitialStudentPasswordHash();
       const displayName =
         `${dto.lastName.trim()} ${dto.firstName.trim()}`.trim();
       const user = usersRepository.create({
-        username: dto.code,
+        username: generatedCode,
         displayName,
         role: UserRole.STUDENT,
-        passwordHash: initialPasswordHash || (await hashPassword(dto.code)),
+        passwordHash:
+          initialPasswordHash || (await hashPassword(generatedCode)),
         isActive: dto.isActive,
         mustChangePassword: true,
         authVersion: 1,
@@ -167,7 +225,7 @@ export class StudentsService {
       const savedUser = await usersRepository.save(user);
       const student = studentsRepository.create({
         userId: savedUser.id,
-        code: dto.code,
+        code: generatedCode,
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
         document: dto.document?.trim() || null,
@@ -229,6 +287,229 @@ export class StudentsService {
       return this.toStudentDetailResponse(refreshedStudent, currentEnrollment, {
         viewerRole: createdBy.role,
       });
+    });
+  }
+
+  async previewStudentsImport(
+    file: { buffer: Buffer; originalname: string } | undefined,
+  ): Promise<StudentImportPreviewResponseDto> {
+    if (!file?.buffer || !file.originalname) {
+      throw new BadRequestException(
+        'Adjunta un archivo Excel antes de continuar con la validacion previa.',
+      );
+    }
+
+    const schoolYear = await this.institutionService.getActiveSchoolYear();
+    const institutionSettings = await this.institutionService.getSettings();
+    const workbook = this.readStudentImportWorkbook(file);
+    const firstSheetName = workbook.SheetNames[0];
+
+    if (!firstSheetName) {
+      throw new BadRequestException(
+        'El archivo no contiene hojas con informacion para importar.',
+      );
+    }
+
+    const firstSheet = workbook.Sheets[firstSheetName];
+    const rows = this.parseStudentImportWorksheet(firstSheet);
+    const validation = await this.validateStudentImportRows(
+      rows,
+      schoolYear,
+      institutionSettings,
+    );
+
+    return {
+      fileName: file.originalname,
+      sheetName: firstSheetName,
+      schoolYear,
+      rows: validation.rows,
+      summary: validation.summary,
+    };
+  }
+
+  async importStudents(
+    dto: ImportStudentsDto,
+    createdBy: AuthenticatedRequestUser,
+  ): Promise<StudentImportResultResponseDto> {
+    const schoolYear =
+      dto.schoolYear ?? (await this.institutionService.getActiveSchoolYear());
+    const institutionSettings = await this.institutionService.getSettings();
+    const rawRows: StudentImportRawRow[] = dto.rows.map((row, index) => ({
+      rowNumber: row.rowNumber ?? index + 1,
+      code: row.code?.trim().toLowerCase() ?? null,
+      firstName: row.firstName.trim(),
+      lastName: row.lastName.trim(),
+      document: row.document?.trim() || null,
+      grade: row.grade,
+      section: row.section.trim().toUpperCase(),
+      shift: row.shift,
+      isActive: row.isActive ?? true,
+    }));
+    const validation = await this.validateStudentImportRows(
+      rawRows,
+      schoolYear,
+      institutionSettings,
+    );
+
+    if (validation.validRows.length === 0) {
+      return {
+        schoolYear,
+        summary: {
+          receivedRows: rawRows.length,
+          importedRows: 0,
+          skippedRows: rawRows.length,
+          generatedCodes: 0,
+        },
+        imported: [],
+        skipped: validation.rows.map((row) => ({
+          rowNumber: row.rowNumber,
+          fullName:
+            `${row.lastName} ${row.firstName}`.trim() || 'Fila sin nombre',
+          reason:
+            row.issues.map((issue) => issue.message).join(' ') ||
+            'La fila no supero la validacion.',
+        })),
+      };
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const generatedCodes = await this.allocateStudentCodes(
+        manager,
+        schoolYear,
+        validation.validRows.filter((row) => !row.code).length,
+        validation.validRows
+          .map((row) => row.code)
+          .filter((row): row is string => Boolean(row)),
+      );
+      const initialPasswordHash =
+        await this.institutionService.getInitialStudentPasswordHash();
+      const imported: StudentImportResultResponseDto['imported'] = [];
+      const skipped: StudentImportResultResponseDto['skipped'] = [];
+      let generatedCodeIndex = 0;
+
+      for (const row of validation.validRows) {
+        const resolvedCode = row.code ?? generatedCodes[generatedCodeIndex++];
+
+        try {
+          const createdStudent = await this.createStudentFromImportRow(
+            manager,
+            row,
+            resolvedCode,
+            schoolYear,
+            initialPasswordHash,
+            createdBy,
+          );
+
+          imported.push({
+            rowNumber: row.rowNumber,
+            studentId: createdStudent.id,
+            code: createdStudent.code,
+            fullName:
+              `${createdStudent.lastName} ${createdStudent.firstName}`.trim(),
+          });
+        } catch (error) {
+          const reason =
+            error instanceof Error
+              ? error.message
+              : 'La fila no pudo importarse por una validacion de ultimo momento.';
+
+          skipped.push({
+            rowNumber: row.rowNumber,
+            fullName: `${row.lastName} ${row.firstName}`.trim(),
+            reason,
+          });
+        }
+      }
+
+      const invalidRows = validation.rows.filter((row) => !row.isValid);
+
+      skipped.push(
+        ...invalidRows.map((row) => ({
+          rowNumber: row.rowNumber,
+          fullName:
+            `${row.lastName} ${row.firstName}`.trim() || 'Fila sin nombre',
+          reason:
+            row.issues.map((issue) => issue.message).join(' ') ||
+            'La fila no supero la validacion.',
+        })),
+      );
+
+      return {
+        schoolYear,
+        summary: {
+          receivedRows: rawRows.length,
+          importedRows: imported.length,
+          skippedRows: skipped.length,
+          generatedCodes: generatedCodes.length,
+        },
+        imported,
+        skipped,
+      };
+    });
+  }
+
+  async exportStudents(
+    query: QueryStudentExportDto,
+  ): Promise<StudentExportFile> {
+    const schoolYear =
+      query.schoolYear ?? (await this.institutionService.getActiveSchoolYear());
+    const institutionSettings = await this.institutionService.getSettings();
+
+    if (
+      typeof query.grade === 'number' &&
+      !institutionSettings.enabledGrades.includes(query.grade)
+    ) {
+      throw new BadRequestException(
+        'El grado solicitado no esta habilitado en la configuracion institucional.',
+      );
+    }
+
+    if (query.section && typeof query.grade === 'number') {
+      const availableSections =
+        institutionSettings.sectionsByGrade[String(query.grade)] ?? [];
+
+      if (!availableSections.includes(query.section)) {
+        throw new BadRequestException(
+          'La seccion solicitada no esta habilitada para el grado indicado.',
+        );
+      }
+    }
+
+    const queryBuilder = this.studentEnrollmentsRepository
+      .createQueryBuilder('enrollment')
+      .innerJoinAndSelect('enrollment.student', 'student')
+      .where('enrollment.schoolYear = :schoolYear', { schoolYear })
+      .andWhere('enrollment.status = :status', {
+        status: StudentEnrollmentStatus.ACTIVE,
+      });
+
+    if (typeof query.grade === 'number') {
+      queryBuilder.andWhere('enrollment.grade = :grade', {
+        grade: query.grade,
+      });
+    }
+
+    if (query.section) {
+      queryBuilder.andWhere('enrollment.section = :section', {
+        section: query.section,
+      });
+    }
+
+    const enrollments = await queryBuilder
+      .orderBy('enrollment.grade', 'ASC')
+      .addOrderBy('enrollment.section', 'ASC')
+      .addOrderBy('student.lastName', 'ASC')
+      .addOrderBy('student.firstName', 'ASC')
+      .getMany();
+
+    const rows = enrollments.map((enrollment) =>
+      this.toStudentExportRow(enrollment.student, enrollment),
+    );
+
+    return this.buildStudentExportFile(query.format, rows, {
+      schoolYear,
+      grade: query.grade,
+      section: query.section,
     });
   }
 
@@ -1835,6 +2116,799 @@ export class StudentsService {
     }
 
     return student;
+  }
+
+  private readStudentImportWorkbook(
+    file: Pick<
+      { buffer: Buffer; originalname: string },
+      'buffer' | 'originalname'
+    >,
+  ): XLSX.WorkBook {
+    try {
+      return XLSX.read(file.buffer, {
+        type: 'buffer',
+        raw: false,
+        cellDates: false,
+      });
+    } catch {
+      throw new BadRequestException(
+        'No se pudo leer el archivo Excel. Verifica que tenga una hoja valida y vuelve a intentarlo.',
+      );
+    }
+  }
+
+  private parseStudentImportWorksheet(
+    worksheet: XLSX.WorkSheet,
+  ): StudentImportRawRow[] {
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+      header: 1,
+      defval: '',
+      blankrows: false,
+    });
+
+    if (matrix.length === 0) {
+      throw new BadRequestException(
+        'El archivo no contiene filas para importar estudiantes.',
+      );
+    }
+
+    const [headerRow, ...dataRows] = matrix;
+    const headerMap = this.buildStudentImportHeaderMap(
+      Array.isArray(headerRow) ? headerRow : [],
+    );
+    const missingHeaders = STUDENT_IMPORT_REQUIRED_HEADERS.filter(
+      (header) => !headerMap.has(header),
+    );
+
+    if (missingHeaders.length > 0) {
+      throw new BadRequestException(
+        `Faltan columnas obligatorias en el archivo: ${missingHeaders.join(', ')}.`,
+      );
+    }
+
+    return dataRows
+      .map((row, index) =>
+        this.parseStudentImportRow(
+          Array.isArray(row) ? row : [],
+          headerMap,
+          index + 2,
+        ),
+      )
+      .filter((row) => !this.isStudentImportRowEmpty(row));
+  }
+
+  private buildStudentImportHeaderMap(headers: unknown[]): Map<string, number> {
+    const map = new Map<string, number>();
+
+    headers.forEach((header, index) => {
+      const normalizedHeader = this.normalizeStudentImportHeader(header);
+
+      if (!normalizedHeader) {
+        return;
+      }
+
+      if (
+        ['codigo', 'code', 'studentcode', 'codigodelestudiante'].includes(
+          normalizedHeader,
+        )
+      ) {
+        map.set('code', index);
+      }
+
+      if (
+        ['nombres', 'nombre', 'firstname', 'firstnames'].includes(
+          normalizedHeader,
+        )
+      ) {
+        map.set('nombres', index);
+      }
+
+      if (
+        ['apellidos', 'apellido', 'lastname', 'lastnames'].includes(
+          normalizedHeader,
+        )
+      ) {
+        map.set('apellidos', index);
+      }
+
+      if (['documento', 'document', 'dni', 'doc'].includes(normalizedHeader)) {
+        map.set('documento', index);
+      }
+
+      if (['grado', 'grade'].includes(normalizedHeader)) {
+        map.set('grado', index);
+      }
+
+      if (
+        ['seccion', 'section', 'aula', 'classroom'].includes(normalizedHeader)
+      ) {
+        map.set('seccion', index);
+      }
+
+      if (['turno', 'shift'].includes(normalizedHeader)) {
+        map.set('turno', index);
+      }
+
+      if (
+        ['activo', 'estado', 'isactive', 'status'].includes(normalizedHeader)
+      ) {
+        map.set('activo', index);
+      }
+    });
+
+    return map;
+  }
+
+  private normalizeStudentImportHeader(value: unknown): string {
+    if (typeof value !== 'string') {
+      return '';
+    }
+
+    return value
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '');
+  }
+
+  private parseStudentImportRow(
+    values: unknown[],
+    headerMap: Map<string, number>,
+    rowNumber: number,
+  ): StudentImportRawRow {
+    const getValue = (key: string): unknown =>
+      values[headerMap.get(key) ?? -1] ?? '';
+
+    return {
+      rowNumber,
+      code: this.normalizeImportCode(getValue('code')),
+      firstName: this.normalizeImportName(getValue('nombres')),
+      lastName: this.normalizeImportName(getValue('apellidos')),
+      document: this.normalizeImportDocument(getValue('documento')),
+      grade: this.normalizeImportGrade(getValue('grado')),
+      section: this.normalizeImportSection(getValue('seccion')),
+      shift: this.normalizeImportShift(getValue('turno')),
+      isActive: this.normalizeImportActiveState(getValue('activo')),
+    };
+  }
+
+  private normalizeImportCode(value: unknown): string | null {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return null;
+    }
+
+    const normalizedValue = String(value).trim().toLowerCase();
+    return normalizedValue.length > 0 ? normalizedValue : null;
+  }
+
+  private normalizeImportName(value: unknown): string {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return '';
+    }
+
+    return String(value).trim();
+  }
+
+  private normalizeImportDocument(value: unknown): string | null {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return null;
+    }
+
+    const normalizedValue = String(value).trim();
+    return normalizedValue.length > 0 ? normalizedValue : null;
+  }
+
+  private normalizeImportGrade(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isInteger(value)) {
+      return value;
+    }
+
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalizedValue = Number.parseInt(value.trim(), 10);
+    return Number.isNaN(normalizedValue) ? null : normalizedValue;
+  }
+
+  private normalizeImportSection(value: unknown): string | null {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return null;
+    }
+
+    const normalizedValue = String(value).trim().toUpperCase();
+    return normalizedValue.length > 0 ? normalizedValue : null;
+  }
+
+  private normalizeImportShift(value: unknown): StudentShift | null {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return null;
+    }
+
+    const normalizedValue = String(value)
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .trim()
+      .toLowerCase();
+
+    if (
+      ['morning', 'manana', 'turnomanana', 'mananaam'].includes(normalizedValue)
+    ) {
+      return StudentShift.MORNING;
+    }
+
+    if (['afternoon', 'tarde', 'turnotarde', 'pm'].includes(normalizedValue)) {
+      return StudentShift.AFTERNOON;
+    }
+
+    return null;
+  }
+
+  private normalizeImportActiveState(value: unknown): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    if (typeof value !== 'string') {
+      return true;
+    }
+
+    const normalizedValue = value
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .trim()
+      .toLowerCase();
+
+    if (!normalizedValue) {
+      return true;
+    }
+
+    if (
+      ['activo', 'activa', 'si', 'sí', 'true', '1'].includes(normalizedValue)
+    ) {
+      return true;
+    }
+
+    if (
+      ['inactivo', 'inactiva', 'no', 'false', '0'].includes(normalizedValue)
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private isStudentImportRowEmpty(row: StudentImportRawRow): boolean {
+    return (
+      !row.code &&
+      !row.firstName &&
+      !row.lastName &&
+      !row.document &&
+      row.grade === null &&
+      !row.section &&
+      !row.shift
+    );
+  }
+
+  private async validateStudentImportRows(
+    rows: StudentImportRawRow[],
+    schoolYear: number,
+    institutionSettings: Awaited<ReturnType<InstitutionService['getSettings']>>,
+  ): Promise<StudentImportValidationResult> {
+    const providedCodes = rows
+      .map((row) => row.code)
+      .filter((row): row is string => Boolean(row));
+    const providedDocuments = rows
+      .map((row) => row.document)
+      .filter((row): row is string => Boolean(row));
+
+    const duplicateCodesInFile = this.findDuplicateValues(providedCodes);
+    const duplicateDocumentsInFile =
+      this.findDuplicateValues(providedDocuments);
+    const existingStudentCodes = providedCodes.length
+      ? await this.studentsRepository.find({
+          where: { code: In(providedCodes) },
+          select: { code: true },
+        })
+      : [];
+    const existingUserCodes = providedCodes.length
+      ? await this.dataSource.getRepository(User).find({
+          where: { username: In(providedCodes) },
+          select: { username: true },
+        })
+      : [];
+    const existingDocuments = providedDocuments.length
+      ? await this.studentsRepository.find({
+          where: { document: In(providedDocuments) },
+          select: { document: true },
+        })
+      : [];
+    const existingCodeSet = new Set([
+      ...existingStudentCodes.map((student) => student.code),
+      ...existingUserCodes.map((user) => user.username),
+    ]);
+    const existingDocumentSet = new Set(
+      existingDocuments
+        .map((student) => student.document)
+        .filter((document): document is string => Boolean(document)),
+    );
+    const summary: StudentImportValidationSummary = {
+      totalRows: rows.length,
+      validRows: 0,
+      invalidRows: 0,
+      rowsWithoutCode: 0,
+      rowsWithDuplicateCode: 0,
+      rowsWithDuplicateDocument: 0,
+      rowsWithInvalidClassroomData: 0,
+      rowsWithIncompleteData: 0,
+    };
+
+    const previewRows = rows.map((row) => {
+      const issues: StudentImportPreviewRowDto['issues'] = [];
+
+      if (!row.code) {
+        summary.rowsWithoutCode += 1;
+      }
+
+      if (
+        !row.firstName ||
+        !row.lastName ||
+        !row.grade ||
+        !row.section ||
+        !row.shift
+      ) {
+        issues.push({
+          code: 'incomplete',
+          message:
+            'Completa nombres, apellidos, grado, seccion y turno antes de importar.',
+        });
+      }
+
+      if (row.code && !/^[a-z0-9][a-z0-9_-]{2,31}$/.test(row.code)) {
+        issues.push({
+          code: 'invalid_code',
+          message:
+            'El codigo debe usar solo letras, numeros, guion o guion bajo y tener entre 3 y 32 caracteres.',
+        });
+      }
+
+      if (row.code && duplicateCodesInFile.has(row.code)) {
+        issues.push({
+          code: 'duplicate_code',
+          message:
+            'El codigo se repite dentro del mismo archivo. Corrigelo antes de continuar.',
+        });
+      }
+
+      if (row.code && existingCodeSet.has(row.code)) {
+        issues.push({
+          code: 'duplicate_code',
+          message:
+            'El codigo ya existe en el sistema y no puede reutilizarse en esta importacion.',
+        });
+      }
+
+      if (row.document && duplicateDocumentsInFile.has(row.document)) {
+        issues.push({
+          code: 'duplicate_document',
+          message:
+            'El documento se repite dentro del mismo archivo. Corrigelo antes de continuar.',
+        });
+      }
+
+      if (row.document && existingDocumentSet.has(row.document)) {
+        issues.push({
+          code: 'duplicate_document',
+          message:
+            'El documento ya esta asignado a otro estudiante en el sistema.',
+        });
+      }
+
+      if (
+        row.grade !== null &&
+        !institutionSettings.enabledGrades.includes(row.grade)
+      ) {
+        issues.push({
+          code: 'invalid_grade',
+          message:
+            'El grado no esta habilitado en la configuracion institucional actual.',
+        });
+      }
+
+      if (row.shift && !institutionSettings.enabledTurns.includes(row.shift)) {
+        issues.push({
+          code: 'invalid_shift',
+          message:
+            'El turno no esta habilitado en la configuracion institucional actual.',
+        });
+      }
+
+      if (row.grade !== null && row.section) {
+        const availableSections =
+          institutionSettings.sectionsByGrade[String(row.grade)] ?? [];
+
+        if (!availableSections.includes(row.section)) {
+          issues.push({
+            code: 'invalid_section',
+            message:
+              'La seccion no esta habilitada para el grado indicado en el año activo.',
+          });
+        }
+      }
+
+      const uniqueIssueCodes = new Set(issues.map((issue) => issue.code));
+
+      if (uniqueIssueCodes.has('incomplete')) {
+        summary.rowsWithIncompleteData += 1;
+      }
+
+      if (uniqueIssueCodes.has('duplicate_code')) {
+        summary.rowsWithDuplicateCode += 1;
+      }
+
+      if (uniqueIssueCodes.has('duplicate_document')) {
+        summary.rowsWithDuplicateDocument += 1;
+      }
+
+      if (
+        uniqueIssueCodes.has('invalid_grade') ||
+        uniqueIssueCodes.has('invalid_section') ||
+        uniqueIssueCodes.has('invalid_shift')
+      ) {
+        summary.rowsWithInvalidClassroomData += 1;
+      }
+
+      const isValid = issues.length === 0;
+
+      if (isValid) {
+        summary.validRows += 1;
+      } else {
+        summary.invalidRows += 1;
+      }
+
+      return {
+        ...row,
+        schoolYear,
+        isValid,
+        issues,
+      };
+    });
+
+    return {
+      schoolYear,
+      rows: previewRows.map((row) => ({
+        rowNumber: row.rowNumber,
+        code: row.code,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        document: row.document,
+        grade: row.grade,
+        section: row.section,
+        shift: row.shift,
+        isActive: row.isActive,
+        isValid: row.isValid,
+        issues: row.issues,
+      })),
+      summary,
+      validRows: previewRows
+        .filter((row) => row.isValid)
+        .map((row) => ({
+          rowNumber: row.rowNumber,
+          code: row.code,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          document: row.document,
+          grade: row.grade,
+          section: row.section,
+          shift: row.shift,
+          isActive: row.isActive,
+        })),
+    };
+  }
+
+  private findDuplicateValues(values: string[]): Set<string> {
+    const counts = new Map<string, number>();
+
+    for (const value of values) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+
+    return new Set(
+      Array.from(counts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([value]) => value),
+    );
+  }
+
+  private async allocateStudentCodes(
+    manager: EntityManager,
+    schoolYear: number,
+    quantity: number,
+    reservedCodes: string[] = [],
+  ): Promise<string[]> {
+    if (quantity <= 0) {
+      return [];
+    }
+
+    await manager
+      .getRepository(InstitutionSetting)
+      .createQueryBuilder('settings')
+      .setLock('pessimistic_write')
+      .where('settings.id = :id', { id: INSTITUTION_SETTINGS_ID })
+      .getOne();
+
+    const prefix = `u${schoolYear}`;
+    const prefixLike = `${prefix}%`;
+    const studentCodes = await manager
+      .getRepository(Student)
+      .createQueryBuilder('student')
+      .select('student.code', 'code')
+      .where('student.code LIKE :prefixLike', { prefixLike })
+      .getRawMany<{ code: string }>();
+    const userCodes = await manager
+      .getRepository(User)
+      .createQueryBuilder('user')
+      .select('user.username', 'username')
+      .where('user.username LIKE :prefixLike', { prefixLike })
+      .getRawMany<{ username: string }>();
+    const reservedCodeSet = new Set(reservedCodes);
+    const sequenceCandidates = [
+      ...studentCodes.map((item) => item.code),
+      ...userCodes.map((item) => item.username),
+      ...reservedCodes,
+    ];
+    let currentSequence = 0;
+
+    for (const code of sequenceCandidates) {
+      const match = code.match(
+        new RegExp(
+          `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d{4})$`,
+        ),
+      );
+
+      if (!match?.[1]) {
+        continue;
+      }
+
+      currentSequence = Math.max(
+        currentSequence,
+        Number.parseInt(match[1], 10),
+      );
+    }
+
+    const generatedCodes: string[] = [];
+
+    while (generatedCodes.length < quantity) {
+      currentSequence += 1;
+
+      if (currentSequence > 9999) {
+        throw new ServiceUnavailableException(
+          `Se alcanzo el limite de codigos automaticos disponibles para el año ${schoolYear}.`,
+        );
+      }
+
+      const candidate = `${prefix}${String(currentSequence).padStart(4, '0')}`;
+
+      if (reservedCodeSet.has(candidate)) {
+        continue;
+      }
+
+      reservedCodeSet.add(candidate);
+      generatedCodes.push(candidate);
+    }
+
+    return generatedCodes;
+  }
+
+  private async createStudentFromImportRow(
+    manager: EntityManager,
+    row: StudentImportRawRow,
+    code: string,
+    schoolYear: number,
+    initialPasswordHash: string,
+    createdBy: AuthenticatedRequestUser,
+  ): Promise<Student> {
+    await this.ensureStudentCodeIsUnique(code, manager);
+    await this.ensureDocumentIsUnique(row.document ?? null, null, manager);
+
+    const usersRepository = manager.getRepository(User);
+    const studentsRepository = manager.getRepository(Student);
+    const enrollmentsRepository = manager.getRepository(StudentEnrollment);
+    const changeLogsRepository = manager.getRepository(StudentChangeLog);
+    const displayName = `${row.lastName.trim()} ${row.firstName.trim()}`.trim();
+    const user = usersRepository.create({
+      username: code,
+      displayName,
+      role: UserRole.STUDENT,
+      passwordHash: initialPasswordHash || (await hashPassword(code)),
+      isActive: row.isActive,
+      mustChangePassword: true,
+      authVersion: 1,
+    });
+    const savedUser = await usersRepository.save(user);
+    const student = studentsRepository.create({
+      userId: savedUser.id,
+      code,
+      firstName: row.firstName.trim(),
+      lastName: row.lastName.trim(),
+      document: row.document?.trim() || null,
+      isActive: row.isActive,
+    });
+    const savedStudent = await studentsRepository.save(student);
+    const enrollment = enrollmentsRepository.create({
+      studentId: savedStudent.id,
+      schoolYear,
+      grade: row.grade as number,
+      section: row.section as string,
+      shift: row.shift as StudentShift,
+      status: StudentEnrollmentStatus.ACTIVE,
+      movementType: StudentEnrollmentMovement.NEW_ADMISSION,
+      administrativeDetail: null,
+      statusChangedAt: new Date(),
+      statusChangedByUserId: createdBy.id,
+      isActive: row.isActive,
+    });
+
+    await enrollmentsRepository.save(enrollment);
+    await changeLogsRepository.save(
+      changeLogsRepository.create({
+        studentId: savedStudent.id,
+        changedByUserId: createdBy.id,
+        schoolYear,
+        changeType: StudentChangeType.STUDENT_CREATED,
+        previousData: null,
+        nextData: {
+          code: savedStudent.code,
+          firstName: savedStudent.firstName,
+          lastName: savedStudent.lastName,
+          document: savedStudent.document,
+          isActive: savedStudent.isActive,
+          schoolYear,
+          grade: enrollment.grade,
+          section: enrollment.section,
+          shift: enrollment.shift,
+          status: enrollment.status,
+          movementType: enrollment.movementType,
+        },
+      }),
+    );
+
+    return savedStudent;
+  }
+
+  private async ensureStudentCodeIsUnique(
+    code: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const existingStudent = await manager.getRepository(Student).findOne({
+      where: { code },
+    });
+
+    if (existingStudent) {
+      throw new ConflictException(
+        'El codigo ingresado ya esta asignado a otro estudiante.',
+      );
+    }
+
+    const existingUser = await manager.getRepository(User).findOne({
+      where: { username: code },
+    });
+
+    if (existingUser) {
+      throw new ConflictException(
+        'El codigo ingresado ya esta asignado a otro usuario.',
+      );
+    }
+  }
+
+  private toStudentExportRow(
+    student: Student,
+    enrollment: StudentEnrollment,
+  ): StudentExportRow {
+    return {
+      'Codigo (opcional al importar)': student.code,
+      Nombres: student.firstName,
+      Apellidos: student.lastName,
+      Documento: student.document ?? '',
+      Grado: enrollment.grade,
+      Seccion: enrollment.section,
+      Turno: enrollment.shift === StudentShift.MORNING ? 'Mañana' : 'Tarde',
+      Estado: student.isActive ? 'Activo' : 'Inactivo',
+    };
+  }
+
+  private buildStudentExportFile(
+    format: StudentExportFormat | undefined,
+    rows: StudentExportRow[],
+    metadata: {
+      schoolYear: number;
+      grade?: number;
+      section?: string;
+    },
+  ): StudentExportFile {
+    const exportFormat = format ?? StudentExportFormat.XLSX;
+    const worksheet = this.buildStudentExportWorksheet(rows);
+    const fileName = this.buildStudentExportFileName(exportFormat, metadata);
+
+    if (exportFormat === StudentExportFormat.XLSX) {
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Estudiantes');
+
+      return {
+        fileName,
+        contentType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        buffer: XLSX.write(workbook, {
+          bookType: 'xlsx',
+          type: 'buffer',
+        }) as Buffer,
+      };
+    }
+
+    const csvContent = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
+
+    return {
+      fileName,
+      contentType: 'text/csv; charset=utf-8',
+      buffer: Buffer.from(`\uFEFF${csvContent}`, 'utf8'),
+    };
+  }
+
+  private buildStudentExportWorksheet(
+    rows: StudentExportRow[],
+  ): XLSX.WorkSheet {
+    const data = [
+      [...STUDENT_EXPORT_HEADERS],
+      ...rows.map((row) =>
+        STUDENT_EXPORT_HEADERS.map((header) => row[header] ?? ''),
+      ),
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+    worksheet['!cols'] = STUDENT_EXPORT_HEADERS.map((header) => ({
+      wch: Math.max(
+        header.length + 2,
+        ...rows.map((row) => String(row[header] ?? '').length),
+        14,
+      ),
+    }));
+
+    return worksheet;
+  }
+
+  private buildStudentExportFileName(
+    format: StudentExportFormat,
+    metadata: {
+      schoolYear: number;
+      grade?: number;
+      section?: string;
+    },
+  ): string {
+    const parts = ['estudiantes', `anio_${metadata.schoolYear}`];
+
+    if (typeof metadata.grade === 'number') {
+      parts.push(`grado_${metadata.grade}`);
+    }
+
+    if (metadata.section) {
+      parts.push(
+        `seccion_${this.sanitizeStudentFileNamePart(metadata.section)}`,
+      );
+    }
+
+    return `${parts.join('_')}.${format}`;
+  }
+
+  private sanitizeStudentFileNamePart(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   private mapStudentContacts(

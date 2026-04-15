@@ -8,9 +8,9 @@
             Registrar estudiante para el año activo
           </div>
           <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-            Crea una cuenta estudiantil nueva con su código, aula y turno vigentes. El sistema
-            usará la contraseña inicial institucional y exigirá cambio de contraseña en el primer
-            ingreso.
+            Crea una cuenta estudiantil nueva con aula y turno vigentes. El sistema genera el
+            código automáticamente, usa la contraseña inicial institucional y exigirá cambio de
+            contraseña en el primer ingreso.
           </p>
         </div>
         <div class="col-12 col-lg-auto">
@@ -30,19 +30,7 @@
 
       <q-form class="admin-form-stack q-mt-lg" @submit="handleSubmit">
         <div class="row q-col-gutter-lg admin-form-row">
-          <div class="col-12 col-md-4">
-            <q-input
-              v-model="form.code"
-              label="Código del estudiante"
-              outlined
-              maxlength="32"
-            >
-              <template #prepend>
-                <q-icon name="badge" />
-              </template>
-            </q-input>
-          </div>
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-6">
             <q-input
               v-model="form.firstName"
               label="Nombres"
@@ -54,7 +42,7 @@
               </template>
             </q-input>
           </div>
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-6">
             <q-input
               v-model="form.lastName"
               label="Apellidos"
@@ -185,7 +173,6 @@ const emit = defineEmits<{
 }>();
 
 const form = reactive({
-  code: '',
   firstName: '',
   lastName: '',
   document: '',
@@ -237,7 +224,6 @@ function handleGradeChange(): void {
 }
 
 function resetForm(): void {
-  form.code = '';
   form.firstName = '';
   form.lastName = '';
   form.document = '';
@@ -249,7 +235,6 @@ function resetForm(): void {
 
 function handleSubmit(): void {
   emit('save', {
-    code: form.code.trim().toLowerCase(),
     firstName: form.firstName.trim(),
     lastName: form.lastName.trim(),
     document: form.document.trim() || null,

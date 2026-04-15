@@ -12,10 +12,6 @@ import {
 } from 'class-validator';
 import { StudentShift } from '../../common/enums/student-shift.enum';
 
-function normalizeCode(value: unknown): unknown {
-  return typeof value === 'string' ? value.trim().toLowerCase() : value;
-}
-
 function normalizeName(value: unknown): unknown {
   return typeof value === 'string' ? value.trim() : value;
 }
@@ -34,12 +30,6 @@ function normalizeDocument(value: unknown): unknown {
 }
 
 export class CreateStudentDto {
-  @Transform(({ value }) => normalizeCode(value))
-  @IsString()
-  @MinLength(3)
-  @MaxLength(32)
-  code: string;
-
   @Transform(({ value }) => normalizeName(value))
   @IsString()
   @MinLength(1)

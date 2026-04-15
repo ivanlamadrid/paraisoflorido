@@ -703,6 +703,27 @@
           @save="handleCreateStudent"
         />
 
+        <StudentImportCard
+          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :preview="studentImportPreview"
+          :result="studentImportResult"
+          :feedback="studentImportFeedback"
+          :preview-loading="isPreviewingStudentImport"
+          :import-loading="isImportingStudents"
+          @preview="handlePreviewStudentsImport"
+          @confirm="handleConfirmStudentsImport"
+          @clear="clearStudentImportState"
+        />
+
+        <StudentExportCard
+          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
+          :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
+          :loading-format="exportingStudentsFormat"
+          :feedback="studentExportFeedback"
+          @export="handleExportStudents"
+        />
+
         <q-card flat bordered class="admin-card q-mt-lg">
           <q-card-section class="ui-card-body">
             <div class="ui-eyebrow">Gestión de estudiantes</div>
@@ -1416,6 +1437,8 @@ import ResponsiveSectionNav, {
   type SectionNavItem,
 } from 'components/navigation/ResponsiveSectionNav.vue';
 import StudentCreateCard from 'components/admin/StudentCreateCard.vue';
+import StudentExportCard from 'components/admin/StudentExportCard.vue';
+import StudentImportCard from 'components/admin/StudentImportCard.vue';
 import StudentSupportCard from 'components/admin/StudentSupportCard.vue';
 import StudentFollowUpOverviewCard from 'components/student/StudentFollowUpOverviewCard.vue';
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
@@ -1431,10 +1454,13 @@ import {
   createStudentContact,
   createStudentFollowUp,
   deleteStudentContact,
+  exportStudents,
   getStudentByCode,
   getStudentFollowUpsOverview,
   getStudentInstitutionalProfile,
   getStudents,
+  importStudents as importStudentsRequest,
+  previewStudentsImport,
   updateStudentConsent,
   updateStudentContact,
   updateStudentFollowUp,
@@ -1464,10 +1490,14 @@ import type {
   CreateStudentContactPayload,
   CreateStudentFollowUpPayload,
   CreateStudentPayload,
+  ImportStudentsPayload,
   StudentDetail,
+  StudentExportFormat,
   StudentFollowUpOverviewResponse,
   StudentFollowUpRecordType,
   StudentFollowUpStatus,
+  StudentImportPreviewResponse,
+  StudentImportResultResponse,
   StudentSummary,
   StudentsQuery,
   UpdateStudentConsentPayload,
@@ -1688,15 +1718,20 @@ const isResettingSelectedStudent = ref(false);
 const isChangingOwnPassword = ref(false);
 const isResettingUser = ref(false);
 const isSavingPersonnel = ref(false);
+const isPreviewingStudentImport = ref(false);
+const isImportingStudents = ref(false);
 const savingPersonnelUserId = ref<string | null>(null);
 const deletingStudentContactId = ref<string | null>(null);
 const exportingAttendanceFormat = ref<AttendanceExportFormat | null>(null);
+const exportingStudentsFormat = ref<StudentExportFormat | null>(null);
 const isLoadingAttendanceAlerts = ref(false);
 
 const settingsFeedback = ref<FeedbackState | null>(null);
 const usersFeedback = ref<FeedbackState | null>(null);
 const studentsFeedback = ref<FeedbackState | null>(null);
 const studentCreateFeedback = ref<FeedbackState | null>(null);
+const studentImportFeedback = ref<FeedbackState | null>(null);
+const studentExportFeedback = ref<FeedbackState | null>(null);
 const lookupFeedback = ref<FeedbackState | null>(null);
 const studentDetailFeedback = ref<FeedbackState | null>(null);
 const studentSituationFeedback = ref<FeedbackState | null>(null);
@@ -1709,6 +1744,8 @@ const accountPasswordFeedback = ref<FeedbackState | null>(null);
 const userResetFeedback = ref<FeedbackState | null>(null);
 const attendanceAlertsFeedback = ref<FeedbackState | null>(null);
 const personnelDialogFeedback = ref<FeedbackState | null>(null);
+const studentImportPreview = ref<StudentImportPreviewResponse | null>(null);
+const studentImportResult = ref<StudentImportResultResponse | null>(null);
 
 const enabledShiftOptions = computed(() => {
   const enabledTurns =
@@ -2451,6 +2488,7 @@ async function handleSaveSettings(
     institutionStore.applySettings(response);
     studentsFilters.schoolYear = response.activeSchoolYear;
     attendanceExportFilters.schoolYear = response.activeSchoolYear;
+    clearStudentImportState();
     settingsFeedback.value = {
       type: 'success',
       title: 'Configuración guardada',
@@ -2476,6 +2514,7 @@ async function handleSchoolYearPrepared(
   studentsFilters.schoolYear = response.settings.activeSchoolYear;
   attendanceExportFilters.schoolYear = response.settings.activeSchoolYear;
   attendanceAlertsFilters.schoolYear = response.settings.activeSchoolYear;
+  clearStudentImportState();
   followUpsOverview.value.page = 1;
   usersPage.value = 1;
   studentsPage.value = 1;
@@ -2748,11 +2787,11 @@ async function handleUpdateStudentFollowUp(
 async function handleCreateStudent(payload: CreateStudentPayload): Promise<void> {
   studentCreateFeedback.value = null;
 
-  if (!payload.code || !payload.firstName || !payload.lastName) {
+  if (!payload.firstName || !payload.lastName) {
     studentCreateFeedback.value = {
       type: 'warning',
       title: 'Datos incompletos',
-      message: 'Ingresa código, nombres y apellidos para registrar al estudiante.',
+      message: 'Ingresa nombres y apellidos para registrar al estudiante.',
     };
     return;
   }
@@ -2768,8 +2807,7 @@ async function handleCreateStudent(payload: CreateStudentPayload): Promise<void>
     studentCreateFeedback.value = {
       type: 'success',
       title: 'Estudiante registrado',
-      message:
-        'La cuenta se creó correctamente y quedó lista para el cambio inicial de contraseña.',
+      message: `La cuenta se creo correctamente con el codigo ${createdStudent.code}.`,
     };
     studentDetailFeedback.value = {
       type: 'info',
@@ -2785,6 +2823,122 @@ async function handleCreateStudent(payload: CreateStudentPayload): Promise<void>
     };
   } finally {
     isCreatingStudent.value = false;
+  }
+}
+
+function clearStudentImportState(): void {
+  studentImportFeedback.value = null;
+  studentImportPreview.value = null;
+  studentImportResult.value = null;
+}
+
+async function handlePreviewStudentsImport(file: File): Promise<void> {
+  clearStudentImportState();
+  isPreviewingStudentImport.value = true;
+
+  try {
+    const preview = await previewStudentsImport(file);
+    studentImportPreview.value = preview;
+    studentImportFeedback.value = {
+      type: preview.summary.invalidRows > 0 ? 'warning' : 'success',
+      title:
+        preview.summary.invalidRows > 0
+          ? 'Preview listo con observaciones'
+          : 'Preview listo',
+      message:
+        preview.summary.invalidRows > 0
+          ? `Se detectaron ${preview.summary.totalRows} filas. ${preview.summary.validRows} estan listas y ${preview.summary.invalidRows} requieren revision.`
+          : `Se detectaron ${preview.summary.totalRows} filas y todas quedaron listas para importar.`,
+    };
+  } catch (error) {
+    studentImportFeedback.value = {
+      type: 'error',
+      title: 'No se pudo analizar el archivo',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isPreviewingStudentImport.value = false;
+  }
+}
+
+async function handleConfirmStudentsImport(
+  payload: ImportStudentsPayload,
+): Promise<void> {
+  studentImportFeedback.value = null;
+  studentImportResult.value = null;
+
+  if (payload.rows.length === 0) {
+    studentImportFeedback.value = {
+      type: 'warning',
+      title: 'Sin filas para importar',
+      message: 'Analiza un archivo con estudiantes antes de continuar.',
+    };
+    return;
+  }
+
+  const confirmed = window.confirm(
+    'Se importaran las filas validas y se omitiran las que tengan observaciones. ¿Deseas continuar?',
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  isImportingStudents.value = true;
+
+  try {
+    const result = await importStudentsRequest(payload);
+    const previewInvalidRows = studentImportPreview.value?.summary.invalidRows ?? 0;
+    studentImportResult.value = result;
+    studentImportFeedback.value = {
+      type: result.summary.importedRows > 0 ? 'success' : 'warning',
+      title:
+        result.summary.importedRows > 0
+          ? 'Importacion completada'
+          : 'Importacion sin altas nuevas',
+      message:
+        result.summary.importedRows > 0
+          ? `Se importaron ${result.summary.importedRows} estudiantes, se generaron ${result.summary.generatedCodes} codigos automaticos${previewInvalidRows > 0 ? ` y quedaron ${previewInvalidRows} filas pendientes por observaciones del preview.` : '.'}`
+          : 'Ninguna fila pudo importarse con la validacion actual.',
+    };
+    await Promise.all([loadStudents(), loadUsers()]);
+  } catch (error) {
+    studentImportFeedback.value = {
+      type: 'error',
+      title: 'No se pudo completar la importacion',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isImportingStudents.value = false;
+  }
+}
+
+async function handleExportStudents(payload: {
+  schoolYear: number;
+  grade?: number;
+  section?: string;
+  format: StudentExportFormat;
+}): Promise<void> {
+  studentExportFeedback.value = null;
+  exportingStudentsFormat.value = payload.format;
+
+  try {
+    const { blob, fileName } = await exportStudents(payload);
+    downloadBlobFile(blob, fileName);
+    studentExportFeedback.value = {
+      type: 'success',
+      title: 'Exportacion lista',
+      message:
+        'La descarga se genero correctamente y puede reutilizarse como guia para futuras importaciones.',
+    };
+  } catch (error) {
+    studentExportFeedback.value = {
+      type: 'error',
+      title: 'No se pudo exportar estudiantes',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    exportingStudentsFormat.value = null;
   }
 }
 

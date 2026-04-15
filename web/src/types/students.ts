@@ -94,7 +94,6 @@ export interface StudentDetail extends StudentSummary {
 }
 
 export interface CreateStudentPayload {
-  code: string;
   firstName: string;
   lastName: string;
   document?: string | null;
@@ -103,6 +102,96 @@ export interface CreateStudentPayload {
   shift: StudentShift;
   isActive: boolean;
   schoolYear?: number;
+}
+
+export type StudentImportIssueCode =
+  | 'incomplete'
+  | 'invalid_code'
+  | 'duplicate_code'
+  | 'duplicate_document'
+  | 'invalid_grade'
+  | 'invalid_section'
+  | 'invalid_shift';
+
+export interface StudentImportIssue {
+  code: StudentImportIssueCode;
+  message: string;
+}
+
+export interface StudentImportPreviewRow {
+  rowNumber: number;
+  code: string | null;
+  firstName: string;
+  lastName: string;
+  document: string | null;
+  grade: number | null;
+  section: string | null;
+  shift: StudentShift | null;
+  isActive: boolean;
+  isValid: boolean;
+  issues: StudentImportIssue[];
+}
+
+export interface StudentImportPreviewResponse {
+  fileName: string;
+  sheetName: string;
+  schoolYear: number;
+  rows: StudentImportPreviewRow[];
+  summary: {
+    totalRows: number;
+    validRows: number;
+    invalidRows: number;
+    rowsWithoutCode: number;
+    rowsWithDuplicateCode: number;
+    rowsWithDuplicateDocument: number;
+    rowsWithInvalidClassroomData: number;
+    rowsWithIncompleteData: number;
+  };
+}
+
+export interface ImportStudentsPayload {
+  schoolYear?: number;
+  rows: Array<{
+    rowNumber?: number;
+    code?: string | null;
+    firstName: string;
+    lastName: string;
+    document?: string | null;
+    grade: number;
+    section: string;
+    shift: StudentShift;
+    isActive?: boolean;
+  }>;
+}
+
+export interface StudentImportResultResponse {
+  schoolYear: number;
+  summary: {
+    receivedRows: number;
+    importedRows: number;
+    skippedRows: number;
+    generatedCodes: number;
+  };
+  imported: Array<{
+    rowNumber: number;
+    studentId: string;
+    code: string;
+    fullName: string;
+  }>;
+  skipped: Array<{
+    rowNumber: number;
+    fullName: string;
+    reason: string;
+  }>;
+}
+
+export type StudentExportFormat = 'csv' | 'xlsx';
+
+export interface StudentExportQuery {
+  schoolYear?: number;
+  grade?: number;
+  section?: string;
+  format: StudentExportFormat;
 }
 
 export interface UpdateStudentPayload {
