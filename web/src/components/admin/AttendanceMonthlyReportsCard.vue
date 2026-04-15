@@ -27,7 +27,7 @@
         :message="feedback.message"
       />
 
-      <q-form class="q-gutter-md q-mt-lg" @submit="handleLoadReport">
+      <q-form class="q-gutter-md q-mt-lg" @submit.prevent="handleLoadReport">
         <div class="row q-col-gutter-md">
           <div class="col-12 col-sm-6 col-lg-2">
             <q-input
@@ -143,6 +143,21 @@
       <div v-if="isLoading" class="column items-center q-py-xl q-gutter-md">
         <q-spinner color="primary" size="34px" />
         <span class="text-body2 text-grey-7">Cargando reporte mensual...</span>
+      </div>
+
+      <div
+        v-else-if="!hasLoadedReport"
+        class="student-operational-profile__empty-state q-mt-lg"
+      >
+        <q-icon name="insights" size="28px" color="grey-6" />
+        <div class="text-subtitle2 text-weight-bold text-grey-8">
+          Carga el reporte mensual cuando lo necesites
+        </div>
+        <p class="text-body2 text-grey-7 q-mb-none">
+          Selecciona el mes y aplica filtros si deseas acotar la consulta. Si no
+          eliges filtros academicos, el sistema mostrara el resumen institucional
+          y la primera pagina del detalle por estudiante.
+        </p>
       </div>
 
       <template v-else-if="monthlyReport">
@@ -304,6 +319,29 @@
               </tbody>
             </q-markup-table>
           </div>
+
+          <div
+            v-if="monthlyReport.studentItems.length > 0"
+            class="row items-center justify-between q-gutter-sm q-mt-md"
+          >
+            <div class="text-caption text-grey-7">
+              Mostrando
+              {{ studentResultsRange.start }}
+              -
+              {{ studentResultsRange.end }}
+              de
+              {{ monthlyReport.studentTotal }}
+              estudiantes.
+            </div>
+            <q-pagination
+              v-if="monthlyReport.studentTotal > monthlyReport.studentLimit"
+              v-model="studentPage"
+              color="primary"
+              :max="Math.max(1, Math.ceil(monthlyReport.studentTotal / monthlyReport.studentLimit))"
+              max-pages="7"
+              boundary-links
+            />
+          </div>
         </div>
       </template>
     </q-card-section>
@@ -311,7 +349,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
 import { getMonthlyAttendanceReport } from 'src/services/api/attendance-api';
@@ -353,6 +391,9 @@ const filters = reactive({
 const monthlyReport = ref<MonthlyAttendanceReportResponse | null>(null);
 const feedback = ref<FeedbackState | null>(null);
 const isLoading = ref(false);
+const hasLoadedReport = ref(false);
+const rowsPerPage = 20;
+const studentPage = ref(1);
 
 const gradeOptions = computed(() =>
   props.enabledGrades.map((grade) => ({
@@ -377,6 +418,23 @@ const sectionOptions = computed(() => {
     label: section,
     value: section,
   }));
+});
+
+const studentResultsRange = computed(() => {
+  if (!monthlyReport.value || monthlyReport.value.studentItems.length === 0) {
+    return {
+      start: 0,
+      end: 0,
+    };
+  }
+
+  const start = (monthlyReport.value.studentPage - 1) * monthlyReport.value.studentLimit + 1;
+  const end = start + monthlyReport.value.studentItems.length - 1;
+
+  return {
+    start,
+    end,
+  };
 });
 
 function handleGradeChange(): void {
@@ -411,7 +469,10 @@ async function loadReport(): Promise<void> {
       ...(filters.section ? { section: filters.section } : {}),
       ...(filters.shift ? { shift: filters.shift } : {}),
       ...(filters.search.trim() ? { search: filters.search.trim() } : {}),
+      page: studentPage.value,
+      limit: rowsPerPage,
     });
+    hasLoadedReport.value = true;
   } catch (error) {
     monthlyReport.value = null;
     feedback.value = {
@@ -425,7 +486,12 @@ async function loadReport(): Promise<void> {
 }
 
 async function handleLoadReport(): Promise<void> {
-  await loadReport();
+  if (studentPage.value === 1) {
+    await loadReport();
+    return;
+  }
+
+  studentPage.value = 1;
 }
 
 function resetFilters(): void {
@@ -435,7 +501,10 @@ function resetFilters(): void {
   filters.section = undefined;
   filters.shift = undefined;
   filters.search = '';
-  void loadReport();
+  studentPage.value = 1;
+  hasLoadedReport.value = false;
+  monthlyReport.value = null;
+  feedback.value = null;
 }
 
 watch(
@@ -467,7 +536,11 @@ watch(
   { immediate: true },
 );
 
-onMounted(async () => {
-  await loadReport();
+watch(studentPage, (page, previousPage) => {
+  if (!hasLoadedReport.value || page === previousPage) {
+    return;
+  }
+
+  void loadReport();
 });
 </script>

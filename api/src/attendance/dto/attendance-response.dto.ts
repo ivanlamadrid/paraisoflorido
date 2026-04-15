@@ -281,6 +281,9 @@ export class MonthlyAttendanceReportResponseDto {
   summary: MonthlyAttendanceReportSummaryDto;
   classroomItems: MonthlyAttendanceClassroomItemDto[];
   studentItems: MonthlyAttendanceStudentItemDto[];
+  studentPage: number;
+  studentLimit: number;
+  studentTotal: number;
 }
 
 export class MyAttendanceHistoryItemDto {

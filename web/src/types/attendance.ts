@@ -317,6 +317,9 @@ export interface MonthlyAttendanceReportResponse {
   summary: MonthlyAttendanceReportSummary;
   classroomItems: MonthlyAttendanceClassroomItem[];
   studentItems: MonthlyAttendanceStudentItem[];
+  studentPage: number;
+  studentLimit: number;
+  studentTotal: number;
 }
 
 export type DailyAttendanceQuery = AttendanceContext;
@@ -359,6 +362,8 @@ export interface MonthlyAttendanceReportQuery {
   section?: string;
   shift?: StudentShift;
   search?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface AttendanceRegistrationContext extends AttendanceContext {

@@ -776,6 +776,10 @@ export class AttendanceService {
     const { startDate, endDate, monthLabel } =
       this.resolveMonthlyAttendanceReportRange(query);
     const schoolDates = this.buildSchoolDateRange(startDate, endDate);
+    const studentPage = query.page ?? 1;
+    const studentLimit = query.limit ?? 20;
+    const studentStartIndex = (studentPage - 1) * studentLimit;
+    const studentEndIndex = studentStartIndex + studentLimit;
     const enrollments =
       await this.findEnrollmentsForMonthlyAttendanceReport(query);
     const activeEnrollments = enrollments.filter(
@@ -796,6 +800,9 @@ export class AttendanceService {
         summary: this.buildEmptyMonthlyAttendanceSummary(schoolDates.length),
         classroomItems: [],
         studentItems: [],
+        studentPage,
+        studentLimit,
+        studentTotal: 0,
       };
     }
 
@@ -811,14 +818,34 @@ export class AttendanceService {
       string,
       MonthlyAttendanceClassroomItemDto
     >();
+    let totalStudents = 0;
+    let attendedStudentDays = 0;
+    let entriesRegistered = 0;
+    let exitsRegistered = 0;
+    let lateEntries = 0;
+    let earlyDepartures = 0;
+    let justifiedAbsences = 0;
+    let unjustifiedAbsences = 0;
+    let absences = 0;
+    let incompleteRecords = 0;
 
-    for (const enrollment of activeEnrollments) {
+    for (const [index, enrollment] of activeEnrollments.entries()) {
       const student = enrollment.student;
       const counters = this.buildMonthlyAttendanceCounters(
         enrollment.studentId,
         attendanceByStudentAndDate,
         schoolDates,
       );
+      totalStudents += 1;
+      attendedStudentDays += counters.attendedDays;
+      entriesRegistered += counters.entriesRegistered;
+      exitsRegistered += counters.exitsRegistered;
+      lateEntries += counters.lateEntries;
+      earlyDepartures += counters.earlyDepartures;
+      justifiedAbsences += counters.justifiedAbsences;
+      unjustifiedAbsences += counters.unjustifiedAbsences;
+      absences += counters.absences;
+      incompleteRecords += counters.incompleteRecords;
       const classroomKey = `${enrollment.grade}::${enrollment.section}::${enrollment.shift}`;
       const currentClassroom =
         classroomAggregates.get(classroomKey) ??
@@ -841,30 +868,32 @@ export class AttendanceService {
       currentClassroom.incompleteRecords += counters.incompleteRecords;
       classroomAggregates.set(classroomKey, currentClassroom);
 
-      studentItems.push({
-        studentId: student.id,
-        studentCode: student.code,
-        fullName: `${student.lastName} ${student.firstName}`.trim(),
-        document: student.document,
-        grade: enrollment.grade,
-        section: enrollment.section,
-        shift: enrollment.shift,
-        schoolDays: schoolDates.length,
-        attendedDays: counters.attendedDays,
-        completeDays: counters.completeDays,
-        attendancePercentage: this.calculateAttendancePercentage(
-          counters.attendedDays,
-          schoolDates.length,
-        ),
-        entriesRegistered: counters.entriesRegistered,
-        exitsRegistered: counters.exitsRegistered,
-        lateEntries: counters.lateEntries,
-        earlyDepartures: counters.earlyDepartures,
-        justifiedAbsences: counters.justifiedAbsences,
-        unjustifiedAbsences: counters.unjustifiedAbsences,
-        absences: counters.absences,
-        incompleteRecords: counters.incompleteRecords,
-      });
+      if (index >= studentStartIndex && index < studentEndIndex) {
+        studentItems.push({
+          studentId: student.id,
+          studentCode: student.code,
+          fullName: `${student.lastName} ${student.firstName}`.trim(),
+          document: student.document,
+          grade: enrollment.grade,
+          section: enrollment.section,
+          shift: enrollment.shift,
+          schoolDays: schoolDates.length,
+          attendedDays: counters.attendedDays,
+          completeDays: counters.completeDays,
+          attendancePercentage: this.calculateAttendancePercentage(
+            counters.attendedDays,
+            schoolDates.length,
+          ),
+          entriesRegistered: counters.entriesRegistered,
+          exitsRegistered: counters.exitsRegistered,
+          lateEntries: counters.lateEntries,
+          earlyDepartures: counters.earlyDepartures,
+          justifiedAbsences: counters.justifiedAbsences,
+          unjustifiedAbsences: counters.unjustifiedAbsences,
+          absences: counters.absences,
+          incompleteRecords: counters.incompleteRecords,
+        });
+      }
     }
 
     const classroomItems = Array.from(classroomAggregates.values()).map(
@@ -887,13 +916,30 @@ export class AttendanceService {
         shift: query.shift ?? null,
         schoolDays: schoolDates.length,
       },
-      summary: this.buildMonthlyAttendanceSummary(
-        studentItems,
-        classroomItems,
-        schoolDates.length,
-      ),
+      summary: {
+        totalStudents,
+        schoolDays: schoolDates.length,
+        expectedStudentDays: totalStudents * schoolDates.length,
+        attendedStudentDays,
+        attendancePercentage: this.calculateAttendancePercentage(
+          attendedStudentDays,
+          totalStudents * schoolDates.length,
+        ),
+        entriesRegistered,
+        exitsRegistered,
+        lateEntries,
+        earlyDepartures,
+        justifiedAbsences,
+        unjustifiedAbsences,
+        absences,
+        incompleteRecords,
+        classroomsCount: classroomItems.length,
+      },
       classroomItems,
       studentItems,
+      studentPage,
+      studentLimit,
+      studentTotal: totalStudents,
     };
   }
 
