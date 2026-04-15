@@ -102,13 +102,45 @@
           label="Nueva contraseña inicial general (opcional)"
           outlined
           maxlength="128"
-          type="password"
+          :type="showInitialStudentPassword ? 'text' : 'password'"
           hint="Si la dejas vacía, se conserva la contraseña inicial actual."
         >
           <template #prepend>
             <q-icon name="key" />
           </template>
+          <template #append>
+            <q-btn
+              flat
+              round
+              dense
+              type="button"
+              :icon="showInitialStudentPassword ? 'visibility_off' : 'visibility'"
+              :aria-label="
+                showInitialStudentPassword
+                  ? 'Ocultar contraseña inicial'
+                  : 'Mostrar contraseña inicial'
+              "
+              @click="showInitialStudentPassword = !showInitialStudentPassword"
+            />
+          </template>
         </q-input>
+
+        <div class="settings-password-hint">
+          <div class="text-caption text-grey-7">
+            Se aplica a estudiantes nuevos creados manualmente, importaciones y a la
+            preparación de nuevo año escolar cuando se marque restablecer contraseñas.
+          </div>
+          <div class="text-caption text-grey-7">
+            No cambia contraseñas ya emitidas ni los restablecimientos administrativos
+            manuales.
+          </div>
+          <div
+            v-if="initialStudentPasswordUpdatedLabel"
+            class="text-caption text-grey-7"
+          >
+            Última actualización registrada: {{ initialStudentPasswordUpdatedLabel }}.
+          </div>
+        </div>
 
         <div class="settings-sections-grid">
           <q-input
@@ -145,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
 import type { StudentShift } from 'src/types/attendance';
 import type {
@@ -179,6 +211,11 @@ const allGradeOptions = [1, 2, 3, 4, 5].map((grade) => ({
   value: grade,
 }));
 
+const initialStudentPasswordDateFormatter = new Intl.DateTimeFormat('es-PE', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
 const localForm = reactive({
   schoolName: 'Colegio Paraíso Florido 3082',
   activeSchoolYear: new Date().getFullYear(),
@@ -193,10 +230,27 @@ const localForm = reactive({
   } as Record<string, string>,
   newInitialStudentPassword: '',
 });
+const showInitialStudentPassword = ref(false);
 
 const sortedEnabledGrades = computed(() =>
   [...localForm.enabledGrades].sort((left, right) => left - right),
 );
+
+const initialStudentPasswordUpdatedLabel = computed(() => {
+  const value = props.settings?.initialStudentPasswordUpdatedAt;
+
+  if (!value) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return initialStudentPasswordDateFormatter.format(parsedDate);
+});
 
 function parseSections(value: string | undefined): string[] {
   return Array.from(
@@ -227,6 +281,7 @@ function syncForm(settings: InstitutionSettings | null): void {
     ]),
   );
   localForm.newInitialStudentPassword = '';
+  showInitialStudentPassword.value = false;
 }
 
 function handleSubmit(): void {
@@ -279,5 +334,11 @@ watch(
 .settings-year-card__body {
   display: grid;
   gap: 2px;
+}
+
+.settings-password-hint {
+  display: grid;
+  gap: 4px;
+  margin-top: -8px;
 }
 </style>

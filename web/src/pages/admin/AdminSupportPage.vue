@@ -734,7 +734,7 @@
               Filtra por código, nombre, grado, sección y turno. Desde aquí se abre la ficha institucional completa para corregir el año activo.
             </p>
 
-            <q-form class="admin-form-stack q-mt-lg" @submit="loadStudents">
+            <q-form class="admin-form-stack q-mt-lg" @submit.prevent="handleSubmitStudentsFilters">
               <q-input
                 v-model="studentsFilters.search"
                 label="Buscar por nombre, código o documento"
@@ -786,6 +786,7 @@
                     emit-value
                     map-options
                     :options="studentFilterSectionOptions"
+                    :disable="studentFilterSectionOptions.length === 0"
                   >
                     <template #prepend>
                       <q-icon name="groups" />
@@ -1766,13 +1767,33 @@ const enabledGradeOptions = computed(() => {
   }));
 });
 
-const studentFilterSectionOptions = computed(() => {
-  if (!studentsFilters.grade) {
-    return [];
-  }
+const allStudentFilterSections = computed(() => {
+  const sectionsByGrade =
+    institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade;
+  const uniqueSections = new Set<string>();
 
+  Object.values(sectionsByGrade).forEach((sections) => {
+    sections.forEach((section) => {
+      const normalizedSection = section.trim().toUpperCase();
+
+      if (normalizedSection) {
+        uniqueSections.add(normalizedSection);
+      }
+    });
+  });
+
+  return Array.from(uniqueSections).sort((left, right) =>
+    left.localeCompare(right, 'es'),
+  );
+});
+
+const studentFilterSectionOptions = computed(() => {
   const availableSections =
-    institutionStore.settings?.sectionsByGrade[String(studentsFilters.grade)] ?? [];
+    typeof studentsFilters.grade === 'number'
+      ? institutionStore.settings?.sectionsByGrade[String(studentsFilters.grade)] ??
+        defaultSectionsByGrade[String(studentsFilters.grade)] ??
+        []
+      : allStudentFilterSections.value;
 
   return availableSections.map((section) => ({
     label: section,
@@ -2489,11 +2510,15 @@ async function handleSaveSettings(
     studentsFilters.schoolYear = response.activeSchoolYear;
     attendanceExportFilters.schoolYear = response.activeSchoolYear;
     clearStudentImportState();
+    const initialPasswordWasUpdated = Boolean(
+      payload.newInitialStudentPassword?.trim(),
+    );
     settingsFeedback.value = {
       type: 'success',
       title: 'Configuración guardada',
-      message:
-        'La configuración institucional fue actualizada correctamente.',
+      message: initialPasswordWasUpdated
+        ? 'La configuración institucional fue actualizada. La nueva contraseña inicial general se aplicará a estudiantes nuevos, importaciones y restablecimientos masivos al preparar el nuevo año escolar.'
+        : 'La configuración institucional fue actualizada correctamente.',
     };
     await loadStudents();
   } catch (error) {
@@ -3302,19 +3327,32 @@ function resetStudentsFilters(): void {
   studentsFilters.grade = undefined;
   studentsFilters.section = undefined;
   studentsFilters.shift = undefined;
-  studentsPage.value = 1;
-  void loadStudents();
+  handleSubmitStudentsFilters();
+}
+
+function syncStudentSectionFilter(): void {
+  const availableSections = new Set(
+    studentFilterSectionOptions.value.map((option) => option.value),
+  );
+
+  if (studentsFilters.section && !availableSections.has(studentsFilters.section)) {
+    studentsFilters.section = undefined;
+  }
 }
 
 function handleStudentFilterGradeChange(): void {
-  const availableSections = studentFilterSectionOptions.value.map((option) => option.value);
-  if (
-    studentsFilters.section &&
-    availableSections.length > 0 &&
-    !availableSections.includes(studentsFilters.section)
-  ) {
-    studentsFilters.section = undefined;
+  syncStudentSectionFilter();
+}
+
+function handleSubmitStudentsFilters(): void {
+  syncStudentSectionFilter();
+
+  if (studentsPage.value === 1) {
+    void loadStudents();
+    return;
   }
+
+  studentsPage.value = 1;
 }
 
 function handleAttendanceExportGradeChange(): void {
@@ -3502,6 +3540,10 @@ watch(
 
 watch(usersPage, () => {
   void loadUsers();
+});
+
+watch(studentFilterSectionOptions, () => {
+  syncStudentSectionFilter();
 });
 
 watch(studentsPage, () => {

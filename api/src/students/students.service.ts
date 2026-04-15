@@ -599,16 +599,34 @@ export class StudentsService {
     }
 
     if (normalizedSearch) {
+      const searchPattern = `%${normalizedSearch}%`;
+
       queryBuilder.andWhere(
-        `
-          (
-            student.code ILIKE :search
-            OR student.first_name ILIKE :search
-            OR student.last_name ILIKE :search
-            OR COALESCE(student.document, '') ILIKE :search
-          )
-        `,
-        { search: `%${normalizedSearch}%` },
+        new Brackets((searchQuery) => {
+          searchQuery
+            .where('student.code ILIKE :search', { search: searchPattern })
+            .orWhere('student.first_name ILIKE :search', {
+              search: searchPattern,
+            })
+            .orWhere('student.last_name ILIKE :search', {
+              search: searchPattern,
+            })
+            .orWhere(
+              "CONCAT(student.first_name, ' ', student.last_name) ILIKE :search",
+              {
+                search: searchPattern,
+              },
+            )
+            .orWhere(
+              "CONCAT(student.last_name, ' ', student.first_name) ILIKE :search",
+              {
+                search: searchPattern,
+              },
+            )
+            .orWhere("COALESCE(student.document, '') ILIKE :search", {
+              search: searchPattern,
+            });
+        }),
       );
     }
 
