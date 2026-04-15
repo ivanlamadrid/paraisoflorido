@@ -341,7 +341,7 @@ import { getApiErrorMessage } from 'src/services/api/api-errors';
 import {
   archiveAnnouncement,
   deleteAnnouncement,
-  getAdminAnnouncements,
+  getAdminAnnouncementsCached,
   publishAnnouncement,
 } from 'src/services/api/announcements-api';
 import { useSessionStore } from 'src/stores/session-store';
@@ -514,7 +514,7 @@ async function loadAnnouncements(): Promise<void> {
       query.type = filters.type;
     }
 
-    response.value = await getAdminAnnouncements(query);
+    response.value = await getAdminAnnouncementsCached(query);
     pagination.page = response.value.page;
     pagination.limit = response.value.limit;
   } catch (error) {

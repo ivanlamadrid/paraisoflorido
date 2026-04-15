@@ -287,7 +287,7 @@ import { useRouter } from 'vue-router';
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
-import { getAnnouncementFeed } from 'src/services/api/announcements-api';
+import { getAnnouncementFeedCached } from 'src/services/api/announcements-api';
 import { useSessionStore } from 'src/stores/session-store';
 import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
 import type {
@@ -390,7 +390,7 @@ async function loadFeed(): Promise<void> {
       query.priority = filters.priority;
     }
 
-    feed.value = await getAnnouncementFeed(query);
+    feed.value = await getAnnouncementFeedCached(query);
 
     if (sessionStore.user?.role === 'student') {
       await studentNotificationsStore.refreshAnnouncements({ allowToast: false });

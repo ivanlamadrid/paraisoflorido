@@ -349,7 +349,7 @@ import {
   publishAnnouncement,
   updateAnnouncement,
 } from 'src/services/api/announcements-api';
-import { getMyTutorAssignments } from 'src/services/api/users-api';
+import { getMyTutorAssignmentsCached } from 'src/services/api/users-api';
 import { useInstitutionStore } from 'src/stores/institution-store';
 import type {
   AnnouncementAdminDetail,
@@ -839,7 +839,7 @@ async function handleDelete(): Promise<void> {
 }
 
 async function loadTutorContext(): Promise<void> {
-  tutorAssignments.value = await getMyTutorAssignments();
+  tutorAssignments.value = await getMyTutorAssignmentsCached();
 }
 
 async function loadAnnouncementDetail(): Promise<void> {

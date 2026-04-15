@@ -1,4 +1,9 @@
 import { api } from 'boot/axios';
+import { apiCacheTags, apiCacheTtls } from 'src/services/api/cache-policies';
+import {
+  invalidateDataCache,
+  readWithDataCache,
+} from 'src/services/api/data-cache';
 import type {
   AnnouncementAdminDetail,
   AnnouncementAdminListResponse,
@@ -12,6 +17,16 @@ import type {
   UpdateAnnouncementPayload,
 } from 'src/types/announcements';
 
+function invalidateAnnouncementsCache(): void {
+  invalidateDataCache({
+    tags: [
+      apiCacheTags.announcementFeed,
+      apiCacheTags.announcementDetail,
+      apiCacheTags.adminAnnouncements,
+    ],
+  });
+}
+
 export async function getAnnouncementFeed(
   query: QueryAnnouncementFeed,
 ): Promise<AnnouncementFeedResponse> {
@@ -20,6 +35,19 @@ export async function getAnnouncementFeed(
   });
 
   return data;
+}
+
+export async function getAnnouncementFeedCached(
+  query: QueryAnnouncementFeed,
+  options: { forceRefresh?: boolean } = {},
+): Promise<AnnouncementFeedResponse> {
+  return readWithDataCache({
+    fetcher: () => getAnnouncementFeed(query),
+    forceRefresh: options.forceRefresh,
+    keyParts: ['announcements', 'feed', query],
+    tags: [apiCacheTags.announcementFeed],
+    ttlMs: apiCacheTtls.announcementFeed,
+  });
 }
 
 export async function getAnnouncementUnreadCount(): Promise<AnnouncementUnreadCountResponse> {
@@ -40,12 +68,27 @@ export async function getAnnouncementDetail(
   return data;
 }
 
+export async function getAnnouncementDetailCached(
+  announcementId: string,
+  options: { forceRefresh?: boolean } = {},
+): Promise<AnnouncementDetail> {
+  return readWithDataCache({
+    fetcher: () => getAnnouncementDetail(announcementId),
+    forceRefresh: options.forceRefresh,
+    keyParts: ['announcements', 'detail', announcementId],
+    tags: [apiCacheTags.announcementDetail],
+    ttlMs: apiCacheTtls.announcementDetail,
+  });
+}
+
 export async function markAnnouncementAsRead(
   announcementId: string,
 ): Promise<AnnouncementReadResponse> {
   const { data } = await api.post<AnnouncementReadResponse>(
     `/announcements/${announcementId}/read`,
   );
+
+  invalidateAnnouncementsCache();
 
   return data;
 }
@@ -61,6 +104,19 @@ export async function getAdminAnnouncements(
   );
 
   return data;
+}
+
+export async function getAdminAnnouncementsCached(
+  query: QueryAdminAnnouncements,
+  options: { forceRefresh?: boolean } = {},
+): Promise<AnnouncementAdminListResponse> {
+  return readWithDataCache({
+    fetcher: () => getAdminAnnouncements(query),
+    forceRefresh: options.forceRefresh,
+    keyParts: ['announcements', 'admin', query],
+    tags: [apiCacheTags.adminAnnouncements],
+    ttlMs: apiCacheTtls.adminAnnouncements,
+  });
 }
 
 export async function getAdminAnnouncementDetail(
@@ -81,6 +137,8 @@ export async function createAnnouncement(
     payload,
   );
 
+  invalidateAnnouncementsCache();
+
   return data;
 }
 
@@ -93,6 +151,8 @@ export async function updateAnnouncement(
     payload,
   );
 
+  invalidateAnnouncementsCache();
+
   return data;
 }
 
@@ -102,6 +162,8 @@ export async function publishAnnouncement(
   const { data } = await api.post<AnnouncementAdminDetail>(
     `/announcements/${announcementId}/publish`,
   );
+
+  invalidateAnnouncementsCache();
 
   return data;
 }
@@ -113,6 +175,8 @@ export async function archiveAnnouncement(
     `/announcements/${announcementId}/archive`,
   );
 
+  invalidateAnnouncementsCache();
+
   return data;
 }
 
@@ -122,6 +186,8 @@ export async function deleteAnnouncement(
   const { data } = await api.delete<{ id: string; message: string }>(
     `/announcements/${announcementId}`,
   );
+
+  invalidateAnnouncementsCache();
 
   return data;
 }

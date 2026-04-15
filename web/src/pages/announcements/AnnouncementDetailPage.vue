@@ -129,7 +129,7 @@ import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import {
-  getAnnouncementDetail,
+  getAnnouncementDetailCached,
   markAnnouncementAsRead,
 } from 'src/services/api/announcements-api';
 import { useSessionStore } from 'src/stores/session-store';
@@ -164,7 +164,7 @@ async function loadAnnouncement(): Promise<void> {
 
   try {
     const announcementId = String(route.params.id);
-    announcement.value = await getAnnouncementDetail(announcementId);
+    announcement.value = await getAnnouncementDetailCached(announcementId);
     await markAnnouncementAsRead(announcementId);
 
     if (sessionStore.user?.role === 'student') {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import axios from 'axios';
 import { computed, ref } from 'vue';
 import { setApiAuthToken } from 'boot/axios';
+import { setDataCacheUserScope } from 'src/services/api/data-cache';
 import { useInstitutionStore } from 'src/stores/institution-store';
 import {
   changePassword,
@@ -198,6 +199,11 @@ export const useSessionStore = defineStore('session', () => {
     user.value = nextUser;
     persistSession(nextToken, nextUser);
     setApiAuthToken(nextToken);
+    setDataCacheUserScope(
+      nextToken && nextUser
+        ? { id: nextUser.id, role: nextUser.role }
+        : null,
+    );
   }
 
   async function initializeSession(force = false): Promise<void> {

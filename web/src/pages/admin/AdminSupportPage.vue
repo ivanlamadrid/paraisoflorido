@@ -1457,9 +1457,9 @@ import {
   deleteStudentContact,
   exportStudents,
   getStudentByCode,
-  getStudentFollowUpsOverview,
-  getStudentInstitutionalProfile,
-  getStudents,
+  getStudentFollowUpsOverviewCached,
+  getStudentInstitutionalProfileCached,
+  getStudentsCached,
   importStudents as importStudentsRequest,
   previewStudentsImport,
   updateStudentConsent,
@@ -1470,7 +1470,7 @@ import {
 } from 'src/services/api/students-api';
 import {
   createPersonnelUser,
-  getPersonnelUsers,
+  getPersonnelUsersCached,
   resetUserPassword,
   updatePersonnelUser,
 } from 'src/services/api/users-api';
@@ -2248,7 +2248,7 @@ async function loadUsers(): Promise<void> {
   isLoadingUsers.value = true;
 
   try {
-    const response = await getPersonnelUsers(buildUsersQuery());
+    const response = await getPersonnelUsersCached(buildUsersQuery());
     users.value = response.items;
     usersTotal.value = response.total;
   } catch (error) {
@@ -2269,7 +2269,7 @@ async function loadStudents(): Promise<void> {
   isLoadingStudents.value = true;
 
   try {
-    const response = await getStudents(buildStudentsQuery());
+    const response = await getStudentsCached(buildStudentsQuery());
     students.value = response.items;
     studentsTotal.value = response.total;
   } catch (error) {
@@ -2290,7 +2290,7 @@ async function loadFollowUpsOverview(): Promise<void> {
   isLoadingFollowUpsOverview.value = true;
 
   try {
-    followUpsOverview.value = await getStudentFollowUpsOverview(
+    followUpsOverview.value = await getStudentFollowUpsOverviewCached(
       buildFollowUpsOverviewQuery(),
     );
   } catch (error) {
@@ -2376,7 +2376,7 @@ async function loadStudentDetail(studentId: string): Promise<void> {
   isLoadingStudentDetail.value = true;
 
   try {
-    selectedStudent.value = await getStudentInstitutionalProfile(studentId);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(studentId);
   } catch (error) {
     studentDetailFeedback.value = {
       type: 'error',
@@ -2607,7 +2607,9 @@ async function handleSaveStudentSituation(
 
   try {
     await updateStudentSituation(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfile(selectedStudent.value.id);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(
+      selectedStudent.value.id,
+    );
     studentSituationFeedback.value = {
       type: 'success',
       title: 'Situación actualizada',
@@ -2637,7 +2639,9 @@ async function handleSaveStudentConsent(
 
   try {
     await updateStudentConsent(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfile(selectedStudent.value.id);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(
+      selectedStudent.value.id,
+    );
     studentConsentFeedback.value = {
       type: 'success',
       title: 'Consentimiento actualizado',
@@ -2676,7 +2680,9 @@ async function handleCreateStudentContact(
 
   try {
     await createStudentContact(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfile(selectedStudent.value.id);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(
+      selectedStudent.value.id,
+    );
     studentContactsFeedback.value = {
       type: 'success',
       title: 'Contacto registrado',
@@ -2710,7 +2716,9 @@ async function handleUpdateStudentContact(
       contactId,
       payload,
     );
-    selectedStudent.value = await getStudentInstitutionalProfile(selectedStudent.value.id);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(
+      selectedStudent.value.id,
+    );
     studentContactsFeedback.value = {
       type: 'success',
       title: 'Contacto actualizado',
@@ -2737,7 +2745,9 @@ async function handleDeleteStudentContact(contactId: string): Promise<void> {
 
   try {
     await deleteStudentContact(selectedStudent.value.id, contactId);
-    selectedStudent.value = await getStudentInstitutionalProfile(selectedStudent.value.id);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(
+      selectedStudent.value.id,
+    );
     studentContactsFeedback.value = {
       type: 'success',
       title: 'Contacto desactivado',
@@ -2766,7 +2776,9 @@ async function handleCreateStudentFollowUp(
 
   try {
     await createStudentFollowUp(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfile(selectedStudent.value.id);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(
+      selectedStudent.value.id,
+    );
     studentFollowUpsFeedback.value = {
       type: 'success',
       title: payload.recordType === 'incident' ? 'Incidencia registrada' : 'Observación registrada',
@@ -2796,7 +2808,9 @@ async function handleUpdateStudentFollowUp(
 
   try {
     await updateStudentFollowUp(selectedStudent.value.id, followUpId, payload);
-    selectedStudent.value = await getStudentInstitutionalProfile(selectedStudent.value.id);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(
+      selectedStudent.value.id,
+    );
     studentFollowUpsFeedback.value = {
       type: 'success',
       title: 'Seguimiento actualizado',

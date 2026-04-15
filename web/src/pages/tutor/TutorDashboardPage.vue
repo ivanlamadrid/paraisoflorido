@@ -603,11 +603,11 @@ import { getAttendanceAlerts, getDailyAttendance } from 'src/services/api/attend
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import {
   createStudentFollowUp,
-  getStudentFollowUpsOverview,
-  getStudentInstitutionalProfile,
+  getStudentFollowUpsOverviewCached,
+  getStudentInstitutionalProfileCached,
   updateStudentFollowUp,
 } from 'src/services/api/students-api';
-import { getMyTutorAssignments } from 'src/services/api/users-api';
+import { getMyTutorAssignmentsCached } from 'src/services/api/users-api';
 import { useInstitutionStore } from 'src/stores/institution-store';
 import { useSessionStore } from 'src/stores/session-store';
 import type {
@@ -860,7 +860,7 @@ function syncTutorSectionQuery(section: TutorSection): void {
 }
 
 async function loadTutorAssignments(): Promise<void> {
-  tutorAssignments.value = await getMyTutorAssignments();
+  tutorAssignments.value = await getMyTutorAssignmentsCached();
 
   if (tutorAssignments.value.length === 0) {
     selectedAssignmentKey.value = '';
@@ -1000,7 +1000,7 @@ async function loadFollowUpsOverview(): Promise<void> {
       query.status = followUpsStatus.value;
     }
 
-    followUpsOverview.value = await getStudentFollowUpsOverview(query);
+    followUpsOverview.value = await getStudentFollowUpsOverviewCached(query);
   } catch (error) {
     followUpsOverview.value = {
       items: [],
@@ -1027,7 +1027,7 @@ async function handleOpenStudent(studentId: string): Promise<void> {
   isLoadingStudent.value = true;
 
   try {
-    selectedStudentDetail.value = await getStudentInstitutionalProfile(studentId);
+    selectedStudentDetail.value = await getStudentInstitutionalProfileCached(studentId);
   } catch (error) {
     studentFeedback.value = {
       type: 'error',
@@ -1051,7 +1051,9 @@ async function handleCreateStudentFollowUp(
 
   try {
     await createStudentFollowUp(selectedStudentDetail.value.id, payload);
-    selectedStudentDetail.value = await getStudentInstitutionalProfile(selectedStudentDetail.value.id);
+    selectedStudentDetail.value = await getStudentInstitutionalProfileCached(
+      selectedStudentDetail.value.id,
+    );
     studentFollowUpFeedback.value = {
       type: 'success',
       title: payload.recordType === 'incident' ? 'Incidencia registrada' : 'Observación registrada',
@@ -1081,7 +1083,9 @@ async function handleUpdateStudentFollowUp(
 
   try {
     await updateStudentFollowUp(selectedStudentDetail.value.id, followUpId, payload);
-    selectedStudentDetail.value = await getStudentInstitutionalProfile(selectedStudentDetail.value.id);
+    selectedStudentDetail.value = await getStudentInstitutionalProfileCached(
+      selectedStudentDetail.value.id,
+    );
     studentFollowUpFeedback.value = {
       type: 'success',
       title: 'Seguimiento actualizado',

@@ -424,7 +424,7 @@ import StatusBanner from 'components/ui/StatusBanner.vue';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
-import { getMyStudentInstitutionalProfile } from 'src/services/api/students-api';
+import { getMyStudentInstitutionalProfileCached } from 'src/services/api/students-api';
 import { useSessionStore } from 'src/stores/session-store';
 import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
 import type { AttendanceHistoryItem } from 'src/types/attendance';
@@ -679,7 +679,7 @@ async function loadStudentProfile(): Promise<void> {
   isLoadingProfile.value = true;
 
   try {
-    studentProfile.value = await getMyStudentInstitutionalProfile();
+    studentProfile.value = await getMyStudentInstitutionalProfileCached();
   } catch (error) {
     profileFeedback.value = {
       type: 'error',
