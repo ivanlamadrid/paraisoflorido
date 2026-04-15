@@ -8,6 +8,7 @@ export interface InstitutionSettings {
   sectionsByGrade: Record<string, string[]>;
   hasInitialStudentPasswordConfigured: boolean;
   initialStudentPasswordUpdatedAt: string | null;
+  updatedPendingInitialStudentPasswordsCount?: number | null;
 }
 
 export interface UpdateInstitutionSettingsPayload {

@@ -8,4 +8,5 @@ export class InstitutionSettingsResponseDto {
   sectionsByGrade: Record<string, string[]>;
   hasInitialStudentPasswordConfigured: boolean;
   initialStudentPasswordUpdatedAt: string | null;
+  updatedPendingInitialStudentPasswordsCount?: number | null;
 }

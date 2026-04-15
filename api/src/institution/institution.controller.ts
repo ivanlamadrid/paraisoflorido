@@ -32,9 +32,10 @@ export class InstitutionController {
   @Put('settings')
   @Roles(UserRole.DIRECTOR, UserRole.SECRETARY)
   updateSettings(
+    @AuthUser() authUser: AuthenticatedRequestUser,
     @Body() dto: UpdateInstitutionSettingsDto,
   ): Promise<InstitutionSettingsResponseDto> {
-    return this.institutionService.updateSettings(dto);
+    return this.institutionService.updateSettings(dto, authUser);
   }
 
   @Post('school-year/preparation/preview')

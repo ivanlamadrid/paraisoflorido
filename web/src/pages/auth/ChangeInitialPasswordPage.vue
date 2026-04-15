@@ -139,6 +139,18 @@
               :loading="isSubmitting"
               type="submit"
             />
+
+            <q-btn
+              v-if="isStudentForcedChange"
+              flat
+              color="primary"
+              label="Volver al inicio con otro usuario"
+              no-caps
+              class="full-width"
+              type="button"
+              :disable="isSubmitting"
+              @click="handleBackToLogin"
+            />
           </q-form>
         </q-card-section>
       </q-card>
@@ -202,6 +214,11 @@ async function handleSubmit(): Promise<void> {
   } finally {
     isSubmitting.value = false;
   }
+}
+
+async function handleBackToLogin(): Promise<void> {
+  sessionStore.logout();
+  await router.replace('/');
 }
 
 onMounted(() => {

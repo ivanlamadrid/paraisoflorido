@@ -3,13 +3,13 @@
     <q-card-section class="ui-card-body">
       <div class="row items-start justify-between q-col-gutter-lg">
         <div class="col-12 col-lg">
-          <div class="ui-eyebrow">Configuración institucional</div>
+          <div class="ui-eyebrow">Configuracion institucional</div>
           <div class="text-subtitle1 text-weight-bold q-mt-sm">
-            Parámetros básicos del colegio
+            Parametros basicos del colegio
           </div>
           <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-            Define el nombre del colegio, la contraseña inicial general y la
-            estructura disponible para la operación diaria.
+            Define el nombre del colegio, la contrasena inicial general y la
+            estructura disponible para la operacion diaria.
           </p>
         </div>
         <div class="col-12 col-lg-auto row q-gutter-sm">
@@ -17,7 +17,7 @@
             {{ localForm.schoolName }}
           </q-chip>
           <q-chip class="ui-stat-chip" color="grey-2" text-color="grey-9" icon="calendar_month">
-            Año activo {{ localForm.activeSchoolYear }}
+            Ano activo {{ localForm.activeSchoolYear }}
           </q-chip>
         </div>
       </div>
@@ -48,14 +48,14 @@
             <q-card flat bordered class="settings-year-card">
               <q-card-section class="settings-year-card__body">
                 <div class="text-caption text-grey-7 text-uppercase text-weight-bold">
-                  Año escolar activo
+                  Ano escolar activo
                 </div>
                 <div class="text-subtitle1 text-weight-bold q-mt-sm">
                   {{ localForm.activeSchoolYear }}
                 </div>
                 <div class="text-body2 text-grey-7 q-mt-sm">
-                  El cambio de año se realiza desde la herramienta segura
-                  <strong>Preparar nuevo año escolar</strong>.
+                  El cambio de ano se realiza desde la herramienta segura
+                  <strong>Preparar nuevo ano escolar</strong>.
                 </div>
               </q-card-section>
             </q-card>
@@ -99,11 +99,11 @@
 
         <q-input
           v-model="localForm.newInitialStudentPassword"
-          label="Nueva contraseña inicial general (opcional)"
+          label="Nueva contrasena inicial general de estudiantes (opcional)"
           outlined
           maxlength="128"
           :type="showInitialStudentPassword ? 'text' : 'password'"
-          hint="Si la dejas vacía, se conserva la contraseña inicial actual."
+          hint="Si la dejas vacia, se conserva la contrasena inicial actual."
         >
           <template #prepend>
             <q-icon name="key" />
@@ -117,8 +117,8 @@
               :icon="showInitialStudentPassword ? 'visibility_off' : 'visibility'"
               :aria-label="
                 showInitialStudentPassword
-                  ? 'Ocultar contraseña inicial'
-                  : 'Mostrar contraseña inicial'
+                  ? 'Ocultar contrasena inicial'
+                  : 'Mostrar contrasena inicial'
               "
               @click="showInitialStudentPassword = !showInitialStudentPassword"
             />
@@ -128,17 +128,18 @@
         <div class="settings-password-hint">
           <div class="text-caption text-grey-7">
             Se aplica a estudiantes nuevos creados manualmente, importaciones y a la
-            preparación de nuevo año escolar cuando se marque restablecer contraseñas.
+            preparacion de nuevo ano escolar cuando se marque restablecer contrasenas.
           </div>
           <div class="text-caption text-grey-7">
-            No cambia contraseñas ya emitidas ni los restablecimientos administrativos
-            manuales.
+            Tambien reemplaza la clave de estudiantes que siguen con la contrasena
+            inicial vigente. No cambia contrasenas personalizadas ni restablecimientos
+            administrativos manuales.
           </div>
           <div
             v-if="initialStudentPasswordUpdatedLabel"
             class="text-caption text-grey-7"
           >
-            Última actualización registrada: {{ initialStudentPasswordUpdatedLabel }}.
+            Ultima actualizacion registrada: {{ initialStudentPasswordUpdatedLabel }}.
           </div>
         </div>
 
@@ -160,12 +161,12 @@
 
         <div class="row items-center justify-between q-gutter-sm">
           <div class="text-caption text-grey-7">
-            La contraseña inicial general se reemplaza solo si ingresas un
+            La contrasena inicial general solo se reemplaza si ingresas un
             nuevo valor.
           </div>
           <q-btn
             color="primary"
-            label="Guardar configuración"
+            label="Guardar configuracion"
             no-caps
             type="submit"
             :loading="loading"
@@ -202,7 +203,7 @@ const emit = defineEmits<{
 }>();
 
 const allShiftOptions: Array<{ label: string; value: StudentShift }> = [
-  { label: 'Turno mañana', value: 'morning' },
+  { label: 'Turno manana', value: 'morning' },
   { label: 'Turno tarde', value: 'afternoon' },
 ];
 
@@ -217,7 +218,7 @@ const initialStudentPasswordDateFormatter = new Intl.DateTimeFormat('es-PE', {
 });
 
 const localForm = reactive({
-  schoolName: 'Colegio Paraíso Florido 3082',
+  schoolName: 'Colegio Paraiso Florido 3082',
   activeSchoolYear: new Date().getFullYear(),
   enabledTurns: ['morning', 'afternoon'] as StudentShift[],
   enabledGrades: [1, 2, 3, 4, 5] as number[],

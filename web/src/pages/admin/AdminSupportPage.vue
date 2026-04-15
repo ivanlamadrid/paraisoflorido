@@ -2513,11 +2513,15 @@ async function handleSaveSettings(
     const initialPasswordWasUpdated = Boolean(
       payload.newInitialStudentPassword?.trim(),
     );
+    const updatedPendingInitialStudentPasswordsCount =
+      response.updatedPendingInitialStudentPasswordsCount ?? 0;
     settingsFeedback.value = {
       type: 'success',
       title: 'Configuración guardada',
       message: initialPasswordWasUpdated
-        ? 'La configuración institucional fue actualizada. La nueva contraseña inicial general se aplicará a estudiantes nuevos, importaciones y restablecimientos masivos al preparar el nuevo año escolar.'
+        ? updatedPendingInitialStudentPasswordsCount > 0
+          ? `La configuración institucional fue actualizada. La nueva contraseña inicial general ya se aplicó a ${updatedPendingInitialStudentPasswordsCount} estudiantes que aún seguían en primer ingreso.`
+          : 'La configuración institucional fue actualizada. La nueva contraseña inicial general se aplicará a altas nuevas, importaciones y continuidades cuando corresponda.'
         : 'La configuración institucional fue actualizada correctamente.',
     };
     await loadStudents();

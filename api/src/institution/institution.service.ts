@@ -71,9 +71,11 @@ export class InstitutionService {
 
   async updateSettings(
     dto: UpdateInstitutionSettingsDto,
+    authUser: AuthenticatedRequestUser,
   ): Promise<InstitutionSettingsResponseDto> {
     return this.dataSource.transaction(async (manager) => {
       const settings = await this.getSettingsEntity(manager);
+      let updatedPendingInitialStudentPasswordsCount: number | null = null;
 
       if (dto.activeSchoolYear !== settings.activeSchoolYear) {
         throw new BadRequestException(
@@ -93,15 +95,42 @@ export class InstitutionService {
       );
 
       if (dto.newInitialStudentPassword?.trim()) {
-        settings.initialStudentPasswordHash = await hashPassword(
-          dto.newInitialStudentPassword.trim(),
+        const nextInitialStudentPassword = dto.newInitialStudentPassword.trim();
+        const matchesCurrentInitialPassword = await verifyPassword(
+          nextInitialStudentPassword,
+          settings.initialStudentPasswordHash,
         );
-        settings.initialStudentPasswordUpdatedAt = new Date();
+
+        if (!matchesCurrentInitialPassword) {
+          const previousInitialStudentPasswordHash =
+            settings.initialStudentPasswordHash;
+          const nextInitialStudentPasswordHash = await hashPassword(
+            nextInitialStudentPassword,
+          );
+          const updatedAt = new Date();
+
+          updatedPendingInitialStudentPasswordsCount =
+            await this.syncPendingInitialStudentPasswords(
+              manager,
+              previousInitialStudentPasswordHash,
+              nextInitialStudentPasswordHash,
+              authUser.id,
+              updatedAt,
+            );
+
+          settings.initialStudentPasswordHash = nextInitialStudentPasswordHash;
+          settings.initialStudentPasswordUpdatedAt = updatedAt;
+        } else {
+          updatedPendingInitialStudentPasswordsCount = 0;
+        }
       }
 
       const repository = manager.getRepository(InstitutionSetting);
       const savedSettings = await repository.save(settings);
-      return this.toSettingsResponse(savedSettings);
+      return this.toSettingsResponse(
+        savedSettings,
+        updatedPendingInitialStudentPasswordsCount,
+      );
     });
   }
 
@@ -348,6 +377,7 @@ export class InstitutionService {
 
   toSettingsResponse(
     settings: InstitutionSetting,
+    updatedPendingInitialStudentPasswordsCount: number | null = null,
   ): InstitutionSettingsResponseDto {
     return {
       schoolName: settings.schoolName,
@@ -359,7 +389,52 @@ export class InstitutionService {
         settings.initialStudentPasswordHash.trim().length > 0,
       initialStudentPasswordUpdatedAt:
         settings.initialStudentPasswordUpdatedAt?.toISOString() ?? null,
+      updatedPendingInitialStudentPasswordsCount,
     };
+  }
+
+  private async syncPendingInitialStudentPasswords(
+    manager: EntityManager,
+    previousInitialStudentPasswordHash: string,
+    nextInitialStudentPasswordHash: string,
+    performedByUserId: string,
+    changedAt: Date,
+  ): Promise<number> {
+    const usersRepository = manager.getRepository(User);
+    const passwordResetLogsRepository = manager.getRepository(PasswordResetLog);
+    const usersToUpdate = await usersRepository.find({
+      where: {
+        role: UserRole.STUDENT,
+        mustChangePassword: true,
+        passwordHash: previousInitialStudentPasswordHash,
+      },
+    });
+
+    if (usersToUpdate.length === 0) {
+      return 0;
+    }
+
+    for (const user of usersToUpdate) {
+      user.passwordHash = nextInitialStudentPasswordHash;
+      user.mustChangePassword = true;
+      user.lastLoginAt = null;
+      user.authVersion += 1;
+    }
+
+    await usersRepository.save(usersToUpdate);
+    await passwordResetLogsRepository.save(
+      usersToUpdate.map((user) =>
+        passwordResetLogsRepository.create({
+          targetUserId: user.id,
+          performedByUserId,
+          reason:
+            'Actualizacion de contrasena inicial general para estudiantes pendientes de primer ingreso',
+          createdAt: changedAt,
+        }),
+      ),
+    );
+
+    return usersToUpdate.length;
   }
 
   private async buildDefaultSettingsEntity(): Promise<InstitutionSetting> {
