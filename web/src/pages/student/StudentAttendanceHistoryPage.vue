@@ -684,12 +684,14 @@ function syncStudentSectionQuery(section: StudentSection): void {
   void router.replace({ query: nextQuery });
 }
 
-async function loadStudentProfile(): Promise<void> {
+async function loadStudentProfile(forceRefresh = false): Promise<void> {
   profileFeedback.value = null;
   isLoadingProfile.value = true;
 
   try {
-    studentProfile.value = await getMyStudentInstitutionalProfileCached();
+    studentProfile.value = await getMyStudentInstitutionalProfileCached({
+      forceRefresh,
+    });
   } catch (error) {
     profileFeedback.value = {
       type: 'error',
@@ -831,6 +833,11 @@ async function refreshActiveSectionData(
 
   lastSectionRefreshAt = Date.now();
   sectionRefreshPromise = (async () => {
+    if (activeSection.value === 'account') {
+      await loadStudentProfile(true);
+      return;
+    }
+
     if (activeSection.value === 'history') {
       await Promise.all([loadTodayHistory(), loadHistory()]);
       return;
@@ -981,6 +988,11 @@ watch(
 
 watch(activeSection, (section) => {
   syncStudentSectionQuery(section);
+
+  if (section === 'account' && !isLoadingProfile.value) {
+    void loadStudentProfile(true);
+    return;
+  }
 
   if (section === 'history' && !isLoadingHistory.value) {
     void loadHistory();
