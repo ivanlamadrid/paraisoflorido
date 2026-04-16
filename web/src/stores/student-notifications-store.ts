@@ -4,6 +4,7 @@ import { getAnnouncementFeed } from 'src/services/api/announcements-api';
 import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import type { AnnouncementFeedItem } from 'src/types/announcements';
 import type { AttendanceHistoryItem, AttendanceMarkType } from 'src/types/attendance';
+import { getCurrentLimaIsoDate } from 'src/utils/lima-date';
 
 const STORAGE_KEY_PREFIX = 'colegio.student.in-app-notifications';
 const POLL_INTERVAL_MS = 60_000;
@@ -45,7 +46,7 @@ function getStorageKey(userId: string): string {
 }
 
 function getTodayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getCurrentLimaIsoDate();
 }
 
 function normalizeSnapshot(
@@ -127,6 +128,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
   const activeStudentUserId = ref<string | null>(null);
   const announcementsBootstrapped = ref(false);
   const attendanceBootstrapped = ref(false);
+  const attendanceChangeVersion = ref(0);
 
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let visibilityHandler: (() => void) | null = null;
@@ -164,6 +166,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
     unreadUrgentCount.value = 0;
     announcementsBootstrapped.value = false;
     attendanceBootstrapped.value = false;
+    attendanceChangeVersion.value = 0;
     clearQueues();
   }
 
@@ -377,6 +380,10 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
         return key !== null && !snapshot.attendanceKeys.includes(key);
       });
 
+      if (freshMarks.length > 0) {
+        attendanceChangeVersion.value += 1;
+      }
+
       if (options.allowToast !== false) {
         freshMarks.forEach((item) => enqueueAttendanceToast(item));
       }
@@ -459,6 +466,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
     unreadUrgentCount,
     isLoadingAnnouncements,
     isRefreshingAttendance,
+    attendanceChangeVersion,
     hasUnreadAnnouncements,
     highlightedAnnouncement,
     homeAnnouncements,

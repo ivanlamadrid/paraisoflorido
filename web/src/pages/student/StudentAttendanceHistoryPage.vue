@@ -412,7 +412,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ResponsiveSectionNav, { type SectionNavItem } from 'components/navigation/ResponsiveSectionNav.vue';
 import PasswordChangeCard from 'components/auth/PasswordChangeCard.vue';
@@ -430,6 +437,7 @@ import { useStudentNotificationsStore } from 'src/stores/student-notifications-s
 import type { AttendanceHistoryItem } from 'src/types/attendance';
 import type { ChangePasswordPayload } from 'src/types/session';
 import type { StudentDetail } from 'src/types/students';
+import { getCurrentLimaIsoDate } from 'src/utils/lima-date';
 import {
   formatAnnouncementDate,
   getAnnouncementPriorityLabel,
@@ -470,7 +478,7 @@ const studentNotificationsStore = useStudentNotificationsStore();
 const route = useRoute();
 const router = useRouter();
 const { isCompactTablet } = useResponsiveDevice();
-const today = new Date().toISOString().slice(0, 10);
+const today = ref(getCurrentLimaIsoDate());
 const defaultStudentSection: StudentSection = 'today';
 
 const sectionItems: SectionNavItem[] = [
@@ -485,8 +493,8 @@ const studentProfile = ref<StudentDetail | null>(null);
 const todayItems = ref<AttendanceHistoryItem[]>([]);
 const historyItems = ref<AttendanceHistoryItem[]>([]);
 const historyFilters = reactive({
-  from: getMonthStart(today),
-  to: today,
+  from: getMonthStart(today.value),
+  to: today.value,
 });
 const historyPagination = reactive({
   page: 1,
@@ -501,6 +509,8 @@ const isLoadingProfile = ref(false);
 const isLoadingToday = ref(false);
 const isLoadingHistory = ref(false);
 const isChangingPassword = ref(false);
+let sectionRefreshPromise: Promise<void> | null = null;
+let lastSectionRefreshAt = 0;
 
 const isInitialLoading = computed(() => isLoadingProfile.value && !studentProfile.value);
 const classroomLabel = computed(() => {
@@ -692,11 +702,17 @@ async function loadStudentProfile(): Promise<void> {
 }
 
 async function loadTodayHistory(): Promise<void> {
+  today.value = getCurrentLimaIsoDate();
   todayFeedback.value = null;
   isLoadingToday.value = true;
 
   try {
-    const response = await getMyAttendanceHistory({ from: today, to: today, page: 1, limit: 20 });
+    const response = await getMyAttendanceHistory({
+      from: today.value,
+      to: today.value,
+      page: 1,
+      limit: 20,
+    });
     todayItems.value = response.items;
   } catch (error) {
     todayItems.value = [];
@@ -711,6 +727,7 @@ async function loadTodayHistory(): Promise<void> {
 }
 
 async function loadHistory(): Promise<void> {
+  today.value = getCurrentLimaIsoDate();
   historyFeedback.value = null;
   isLoadingHistory.value = true;
 
@@ -787,9 +804,58 @@ async function handleChangePassword(payload: ChangePasswordPayload): Promise<voi
 }
 
 function resetHistoryFilters(): void {
-  historyFilters.from = getMonthStart(today);
-  historyFilters.to = today;
+  today.value = getCurrentLimaIsoDate();
+  historyFilters.from = getMonthStart(today.value);
+  historyFilters.to = today.value;
   void loadHistory();
+}
+
+function canRefreshActiveSection(reason: 'focus' | 'visibility' | 'attendance-change'): boolean {
+  if (reason === 'attendance-change') {
+    return true;
+  }
+
+  return Date.now() - lastSectionRefreshAt > 1_000;
+}
+
+async function refreshActiveSectionData(
+  reason: 'focus' | 'visibility' | 'attendance-change',
+): Promise<void> {
+  if (!canRefreshActiveSection(reason)) {
+    return sectionRefreshPromise ?? Promise.resolve();
+  }
+
+  if (sectionRefreshPromise) {
+    return sectionRefreshPromise;
+  }
+
+  lastSectionRefreshAt = Date.now();
+  sectionRefreshPromise = (async () => {
+    if (activeSection.value === 'history') {
+      await Promise.all([loadTodayHistory(), loadHistory()]);
+      return;
+    }
+
+    if (activeSection.value === 'today') {
+      await loadTodayHistory();
+    }
+  })();
+
+  try {
+    await sectionRefreshPromise;
+  } finally {
+    sectionRefreshPromise = null;
+  }
+}
+
+function handleWindowFocus(): void {
+  void refreshActiveSectionData('focus');
+}
+
+function handleVisibilityChange(): void {
+  if (document.visibilityState === 'visible') {
+    void refreshActiveSectionData('visibility');
+  }
 }
 
 function getHistoryTone(item: AttendanceHistoryItem): HistoryTone {
@@ -916,10 +982,26 @@ watch(
 watch(activeSection, (section) => {
   syncStudentSectionQuery(section);
 
-  if (section === 'history' && historyItems.value.length === 0 && !isLoadingHistory.value) {
+  if (section === 'history' && !isLoadingHistory.value) {
     void loadHistory();
+    return;
+  }
+
+  if (section === 'today' && !isLoadingToday.value) {
+    void loadTodayHistory();
   }
 });
+
+watch(
+  () => studentNotificationsStore.attendanceChangeVersion,
+  (version, previousVersion) => {
+    if (version <= 0 || version === previousVersion) {
+      return;
+    }
+
+    void refreshActiveSectionData('attendance-change');
+  },
+);
 
 watch(
   () => route.query.section,
@@ -934,6 +1016,13 @@ watch(
 
 onMounted(async () => {
   activeSection.value = normalizeStudentSection(route.query.section);
+  window.addEventListener('focus', handleWindowFocus);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
   await Promise.all([loadStudentProfile(), loadTodayHistory(), loadHistory()]);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', handleWindowFocus);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
