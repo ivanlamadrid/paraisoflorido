@@ -187,8 +187,8 @@
         <div v-if="isMobile" class="q-mt-lg">
           <q-list bordered separator class="rounded-borders support-list">
             <q-item
-              v-for="item in paginatedItems"
-              :key="`${item.itemType}-${item.studentId}-${item.attendanceDate}`"
+              v-for="(item, index) in paginatedItems"
+              :key="buildRegularizationItemKey(item, index)"
               class="q-py-md"
             >
               <q-item-section>
@@ -249,7 +249,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in paginatedItems" :key="`${item.itemType}-${item.studentId}-${item.attendanceDate}`">
+              <tr
+                v-for="(item, index) in paginatedItems"
+                :key="buildRegularizationItemKey(item, index)"
+              >
                 <td>
                   <div class="text-weight-medium">{{ item.fullName }}</div>
                   <div class="text-caption text-grey-7">
@@ -500,6 +503,21 @@ function getItemTone(itemType: AttendanceRegularizationItemType): {
   }
 
   return { color: 'purple-1', textColor: 'purple-10', icon: 'priority_high' };
+}
+
+function buildRegularizationItemKey(
+  item: AttendanceRegularizationItem,
+  index: number,
+): string {
+  return [
+    item.itemType,
+    item.studentId,
+    item.attendanceDate,
+    item.statusLabel,
+    item.supportLabel ?? '',
+    item.observation ?? '',
+    index,
+  ].join('::');
 }
 
 async function loadRegularization(): Promise<void> {
