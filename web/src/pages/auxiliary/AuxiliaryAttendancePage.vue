@@ -2464,6 +2464,7 @@ async function handleContextSubmit(): Promise<void> {
 }
 
 function focusScannerInput(): void {
+  scanForm.studentCode = '';
   void nextTick(() => {
     scanInputRef.value?.focus();
   });
@@ -2512,7 +2513,7 @@ async function handleScanSubmit(): Promise<void> {
           : 'Salida guardada sin conexión',
         student,
       );
-      scanForm.studentCode = '';
+      focusScannerInput();
       return;
     }
 
@@ -2531,7 +2532,7 @@ async function handleScanSubmit(): Promise<void> {
           : 'Salida registrada',
       message: `${response.fullName} - ${response.grade} ${response.section} - ${getShiftLabel(response.shift)} a las ${formatMarkedTime(response.markedAt)}.`,
     };
-    scanForm.studentCode = '';
+    focusScannerInput();
   } catch (error) {
     handleConnectivityFailure(error);
     const status = getApiErrorStatus(error);

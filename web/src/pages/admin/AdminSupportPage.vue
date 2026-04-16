@@ -342,7 +342,7 @@
           :enabled-turns="institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon']"
           :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
           :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
-          @open-student="handleOpenAlertStudent"
+          @open-student="handleOpenAttendanceStudent"
         />
 
         <AttendanceCorrectionCard
@@ -2408,8 +2408,12 @@ async function handleLookupStudent(): Promise<void> {
 
   try {
     const student = await getStudentByCode(studentLookupCode.value);
-    await loadStudentDetail(student.id);
-    goToAdminSection('students');
+    await openStudentSupportProfile({
+      studentId: student.id,
+      code: student.code,
+      fullName: student.fullName,
+      section: 'students',
+    });
     lookupFeedback.value = {
       type: 'success',
       title: 'Estudiante encontrado',
@@ -2430,15 +2434,43 @@ async function handleLookupStudent(): Promise<void> {
   }
 }
 
+async function openStudentSupportProfile({
+  studentId,
+  code,
+  fullName,
+  section,
+}: {
+  studentId: string;
+  code?: string;
+  fullName?: string;
+  section?: AdminSection;
+}): Promise<void> {
+  if (section) {
+    goToAdminSection(section);
+  }
+
+  if (code) {
+    studentLookupCode.value = code;
+  }
+
+  if (fullName) {
+    lookupFeedback.value = {
+      type: 'info',
+      title: 'Ficha preparada',
+      message: `Cargando el detalle de ${fullName}.`,
+    };
+  }
+
+  await loadStudentDetail(studentId);
+}
+
 async function prefillStudentSupport(student: StudentSummary): Promise<void> {
-  goToAdminSection('students');
-  studentLookupCode.value = student.code;
-  lookupFeedback.value = {
-    type: 'info',
-    title: 'Ficha preparada',
-    message: `Cargando el detalle de ${student.fullName}.`,
-  };
-  await loadStudentDetail(student.id);
+  await openStudentSupportProfile({
+    studentId: student.id,
+    code: student.code,
+    fullName: student.fullName,
+    section: 'students',
+  });
 }
 
 async function handleOpenAlertStudent(
@@ -2446,14 +2478,24 @@ async function handleOpenAlertStudent(
   code: string,
   fullName: string,
 ): Promise<void> {
-  goToAdminSection('students');
-  studentLookupCode.value = code;
-  lookupFeedback.value = {
-    type: 'info',
-    title: 'Ficha preparada',
-    message: `Cargando el detalle de ${fullName}.`,
-  };
-  await loadStudentDetail(studentId);
+  await openStudentSupportProfile({
+    studentId,
+    code,
+    fullName,
+    section: 'students',
+  });
+}
+
+async function handleOpenAttendanceStudent(
+  studentId: string,
+  code: string,
+  fullName: string,
+): Promise<void> {
+  await openStudentSupportProfile({
+    studentId,
+    code,
+    fullName,
+  });
 }
 
 async function handleOpenStudentFromFollowUpOverview(
@@ -2463,11 +2505,12 @@ async function handleOpenStudentFromFollowUpOverview(
     (currentItem) => currentItem.studentId === studentId,
   );
 
-  await handleOpenAlertStudent(
+  await openStudentSupportProfile({
     studentId,
-    item?.studentCode ?? '',
-    item?.studentFullName ?? 'el estudiante seleccionado',
-  );
+    code: item?.studentCode ?? '',
+    fullName: item?.studentFullName ?? 'el estudiante seleccionado',
+    section: 'students',
+  });
 }
 
 async function handleSaveSettings(
