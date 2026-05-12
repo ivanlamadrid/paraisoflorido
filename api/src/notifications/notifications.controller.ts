@@ -15,6 +15,7 @@ import { RegisterNotificationTokenDto } from './dto/register-notification-token.
 import { UnregisterNotificationTokenDto } from './dto/unregister-notification-token.dto';
 import {
   MarkNotificationReadResponseDto,
+  NotificationDebugSendResponseDto,
   NotificationResponseDto,
   NotificationTestResponseDto,
   NotificationTokenResponseDto,
@@ -62,5 +63,12 @@ export class NotificationsController {
     @AuthUser() authUser: AuthenticatedRequestUser,
   ): Promise<NotificationTestResponseDto> {
     return this.notificationsService.sendTestNotification(authUser.id);
+  }
+
+  @Post('debug/send-to-me')
+  sendDebugNotificationToMe(
+    @AuthUser() authUser: AuthenticatedRequestUser,
+  ): Promise<NotificationDebugSendResponseDto> {
+    return this.notificationsService.sendDebugNotificationToUser(authUser);
   }
 }

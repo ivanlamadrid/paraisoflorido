@@ -36,6 +36,23 @@ export class NotificationTestResponseDto {
   delivery: NotificationDeliverySummaryDto;
 }
 
+export class NotificationDebugTokenDto {
+  id: string;
+  platform: NotificationPlatform;
+  tokenPreview: string;
+  lastSeenAt: string | null;
+}
+
+export class NotificationDebugSendResponseDto {
+  userId: string;
+  role: string;
+  activeTokensCount: number;
+  tokens: NotificationDebugTokenDto[];
+  message: string;
+  notification: NotificationResponseDto;
+  delivery: NotificationDeliverySummaryDto;
+}
+
 export class MarkNotificationReadResponseDto {
   id: string;
   readAt: string;

@@ -168,13 +168,37 @@ export class FcmService {
       title: payload.title,
       body: payload.body,
     });
+    const route = data.route ?? '/';
+    const tag =
+      data.attendanceRecordId ??
+      data.testId ??
+      data.notificationId ??
+      data.type ??
+      'school-push';
 
     return {
       token,
       data,
       webpush: {
         headers: {
-          Urgency: 'normal',
+          TTL: '3600',
+          Urgency: 'high',
+        },
+        data,
+        notification: {
+          title: payload.title,
+          body: payload.body,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/favicon-128x128.png',
+          tag,
+          requireInteraction: false,
+          data: {
+            ...data,
+            route,
+          },
+        },
+        fcmOptions: {
+          link: route,
         },
       },
     };

@@ -39,3 +39,20 @@ export interface NotificationTestResponse {
   notification: AppNotification;
   delivery: NotificationDeliverySummary;
 }
+
+export interface NotificationDebugToken {
+  id: string;
+  platform: NotificationPlatform;
+  tokenPreview: string;
+  lastSeenAt: string | null;
+}
+
+export interface NotificationDebugSendResponse {
+  userId: string;
+  role: string;
+  activeTokensCount: number;
+  tokens: NotificationDebugToken[];
+  message: string;
+  notification: AppNotification;
+  delivery: NotificationDeliverySummary;
+}

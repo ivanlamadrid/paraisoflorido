@@ -1,11 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { AuthenticatedRequestUser } from '../auth/interfaces/authenticated-request-user.interface';
 import { UserRole } from '../common/enums/user-role.enum';
 import { Student } from '../students/entities/student.entity';
 import { RegisterNotificationTokenDto } from './dto/register-notification-token.dto';
 import {
   MarkNotificationReadResponseDto,
+  NotificationDebugSendResponseDto,
   NotificationDeliverySummaryDto,
   NotificationResponseDto,
   NotificationTestResponseDto,
@@ -173,13 +175,7 @@ export class NotificationsService {
     payload: FcmPushPayload,
     notification: Notification,
   ): Promise<NotificationDeliverySummaryDto> {
-    const activeTokens = await this.notificationTokensRepository.find({
-      where: {
-        userId,
-        enabled: true,
-      },
-      order: { lastSeenAt: 'DESC' },
-    });
+    const activeTokens = await this.findActiveTokensForUser(userId);
 
     const summary: NotificationDeliverySummaryDto = {
       totalTokens: activeTokens.length,
@@ -190,7 +186,7 @@ export class NotificationsService {
     };
 
     this.logger.log(
-      `FCM delivery notificationId=${notification.id} userId=${userId} activeTokens=${activeTokens.length}`,
+      `[FCM] delivery notificationId=${notification.id} userId=${userId} activeTokensCount=${activeTokens.length}`,
     );
 
     if (activeTokens.length === 0) {
@@ -206,7 +202,7 @@ export class NotificationsService {
       });
 
       this.logger.warn(
-        `FCM delivery skipped notificationId=${notification.id} userId=${userId} reason=no_active_tokens`,
+        `[FCM] delivery skipped notificationId=${notification.id} userId=${userId} reason=no_active_tokens`,
       );
 
       return summary;
@@ -236,7 +232,7 @@ export class NotificationsService {
       });
 
       this.logger.log(
-        `FCM delivery attempt notificationId=${notification.id} userId=${userId} tokenId=${token.id} token=${this.maskToken(token.token)} status=${result.status} errorCode=${result.errorCode ?? 'none'}`,
+        `[FCM] delivery attempt notificationId=${notification.id} userId=${userId} tokenId=${token.id} token=${this.maskToken(token.token)} status=${result.status} messageId=${result.providerMessageId ?? 'none'} errorCode=${result.errorCode ?? 'none'}`,
       );
     }
 
@@ -253,7 +249,7 @@ export class NotificationsService {
     for (const recipient of recipients) {
       const body = `${this.getStudentDisplayName(recipient.student)} registró entrada el ${this.formatDateInLima(input.markedAt)} a las ${this.formatTimeInLima(input.markedAt)}.`;
       this.logger.log(
-        `Attendance entry notification resolved attendanceRecordId=${input.attendanceRecordId} studentId=${input.studentId} resolvedUserId=${recipient.userId}`,
+        `[FCM][Attendance] attendanceRecordId=${input.attendanceRecordId} studentId=${input.studentId} resolvedUserId=${recipient.userId} resolvedUserRole=student`,
       );
       const notification = await this.createInternalNotification({
         userId: recipient.userId,
@@ -297,14 +293,14 @@ export class NotificationsService {
 
     if (!student?.user || student.user.role !== UserRole.STUDENT) {
       this.logger.warn(
-        `Notificacion de entrada omitida: estudiante ${studentId} no tiene usuario student asociado.`,
+        `[FCM][Attendance] studentId=${studentId} no_student_user`,
       );
       return [];
     }
 
     if (!student.user.isActive) {
       this.logger.warn(
-        `Notificacion de entrada omitida: usuario student ${student.user.id} inactivo.`,
+        `[FCM][Attendance] studentId=${studentId} resolvedUserId=${student.user.id} user_inactive`,
       );
       return [];
     }
@@ -320,6 +316,60 @@ export class NotificationsService {
     return `${token.slice(0, 6)}...${token.slice(-4)}`;
   }
 
+  async sendDebugNotificationToUser(
+    authUser: AuthenticatedRequestUser,
+  ): Promise<NotificationDebugSendResponseDto> {
+    const testId = `debug-${Date.now()}`;
+    const title = 'Prueba de notificación';
+    const body = 'Esta es una notificación real del sistema.';
+    const activeTokens = await this.findActiveTokensForUser(authUser.id);
+
+    const notification = await this.createInternalNotification({
+      userId: authUser.id,
+      type: NotificationType.SYSTEM_TEST,
+      title,
+      body,
+      data: {
+        type: NotificationType.SYSTEM_TEST,
+        route: '/mi-asistencia',
+        title,
+        body,
+        testId,
+      },
+    });
+
+    const delivery = await this.sendPushToUser(
+      authUser.id,
+      {
+        title,
+        body,
+        data: {
+          ...(notification.dataJson ?? {}),
+          notificationId: notification.id,
+        },
+      },
+      notification,
+    );
+
+    return {
+      userId: authUser.id,
+      role: authUser.role,
+      activeTokensCount: activeTokens.length,
+      tokens: activeTokens.map((token) => ({
+        id: token.id,
+        platform: token.platform,
+        tokenPreview: this.maskToken(token.token),
+        lastSeenAt: token.lastSeenAt?.toISOString() ?? null,
+      })),
+      message:
+        activeTokens.length > 0
+          ? 'Se envió una prueba FCM al usuario autenticado.'
+          : 'No hay tokens FCM activos para este usuario.',
+      notification: this.toNotificationResponse(notification),
+      delivery,
+    };
+  }
+
   async sendTestNotification(
     userId: string,
   ): Promise<NotificationTestResponseDto> {
@@ -331,6 +381,8 @@ export class NotificationsService {
       data: {
         type: NotificationType.SYSTEM_TEST,
         route: '/',
+        title: 'Notificacion de prueba',
+        body: 'Firebase Cloud Messaging esta funcionando correctamente.',
       },
     });
 
@@ -351,6 +403,18 @@ export class NotificationsService {
       notification: this.toNotificationResponse(notification),
       delivery,
     };
+  }
+
+  private findActiveTokensForUser(
+    userId: string,
+  ): Promise<NotificationToken[]> {
+    return this.notificationTokensRepository.find({
+      where: {
+        userId,
+        enabled: true,
+      },
+      order: { lastSeenAt: 'DESC' },
+    });
   }
 
   private getStudentDisplayName(student: Student): string {

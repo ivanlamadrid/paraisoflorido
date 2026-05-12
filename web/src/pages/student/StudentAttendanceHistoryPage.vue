@@ -212,6 +212,62 @@
                 <PushNotificationToggle />
               </div>
 
+              <q-card v-if="isPushDebugEnabled" flat bordered class="history-card q-mt-md">
+                <q-card-section class="ui-card-body">
+                  <div class="ui-eyebrow">Diagnóstico de notificaciones</div>
+                  <div class="text-subtitle2 text-weight-bold q-mt-sm">
+                    Prueba temporal del dispositivo actual
+                  </div>
+                  <div class="row q-col-gutter-sm q-mt-md">
+                    <div class="col-12 col-sm-auto">
+                      <q-btn
+                        color="primary"
+                        icon="bug_report"
+                        label="Ver diagnóstico push"
+                        no-caps
+                        :loading="isPushDiagnosticsLoading"
+                        @click="handleRunPushDiagnostics"
+                      />
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                      <q-btn
+                        color="secondary"
+                        icon="sync"
+                        label="Registrar token otra vez"
+                        no-caps
+                        :loading="isRegisteringPushAgain"
+                        @click="handleRegisterPushTokenAgain"
+                      />
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                      <q-btn
+                        color="positive"
+                        icon="notifications_active"
+                        label="Enviar prueba a mi usuario"
+                        no-caps
+                        :loading="isSendingDebugPush"
+                        @click="handleSendDebugPushToMe"
+                      />
+                    </div>
+                  </div>
+
+                  <StatusBanner
+                    v-if="pushDebugFeedback"
+                    class="q-mt-md"
+                    :variant="pushDebugFeedback.type"
+                    :title="pushDebugFeedback.title"
+                    :message="pushDebugFeedback.message"
+                  />
+
+                  <pre
+                    v-if="pushDiagnosticsJson"
+                    class="text-caption bg-grey-2 q-pa-md rounded-borders q-mt-md"
+                    style="white-space: pre-wrap"
+                    >{{ pushDiagnosticsJson }}</pre
+                  >
+                </q-card-section>
+              </q-card>
+
               <StatusBanner
                 class="q-mt-lg"
                 :variant="todayOverviewBanner.type"
@@ -478,6 +534,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { useQuasar } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
 import ResponsiveSectionNav, {
   type SectionNavItem,
@@ -493,9 +550,18 @@ import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
+import { sendDebugNotificationToMe } from 'src/services/api/notifications-api';
 import { getMyStudentInstitutionalProfileCached } from 'src/services/api/students-api';
+import {
+  getNotificationPermission,
+  getPushDiagnostics,
+  registerCurrentDeviceToken,
+  requestPushPermission,
+  type PushDiagnostics,
+} from 'src/services/push-notifications';
 import { useSessionStore } from 'src/stores/session-store';
 import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
+import type { NotificationDebugSendResponse } from 'src/types/notifications';
 import type { AttendanceHistoryItem } from 'src/types/attendance';
 import type { ChangePasswordPayload } from 'src/types/session';
 import type { StudentDetail } from 'src/types/students';
@@ -537,6 +603,7 @@ type StudentSection = 'today' | 'history' | 'qr' | 'account';
 
 const sessionStore = useSessionStore();
 const studentNotificationsStore = useStudentNotificationsStore();
+const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
 const { isCompactTablet } = useResponsiveDevice();
@@ -567,14 +634,35 @@ const profileFeedback = ref<FeedbackState | null>(null);
 const todayFeedback = ref<FeedbackState | null>(null);
 const historyFeedback = ref<FeedbackState | null>(null);
 const passwordFeedback = ref<FeedbackState | null>(null);
+const pushDebugFeedback = ref<FeedbackState | null>(null);
+const pushDiagnostics = ref<PushDiagnostics | null>(null);
+const pushDebugSendResponse = ref<NotificationDebugSendResponse | null>(null);
 const isLoadingProfile = ref(false);
 const isLoadingToday = ref(false);
 const isLoadingHistory = ref(false);
 const isChangingPassword = ref(false);
+const isPushDiagnosticsLoading = ref(false);
+const isRegisteringPushAgain = ref(false);
+const isSendingDebugPush = ref(false);
 let sectionRefreshPromise: Promise<void> | null = null;
 let lastSectionRefreshAt = 0;
 
 const isInitialLoading = computed(() => isLoadingProfile.value && !studentProfile.value);
+const isPushDebugEnabled = computed(() => route.query.debugPush === '1');
+const pushDiagnosticsJson = computed(() => {
+  if (!pushDiagnostics.value && !pushDebugSendResponse.value) {
+    return '';
+  }
+
+  return JSON.stringify(
+    {
+      diagnostics: pushDiagnostics.value,
+      lastSendToMe: pushDebugSendResponse.value,
+    },
+    null,
+    2,
+  );
+});
 const classroomLabel = computed(() => {
   const profile = studentProfile.value;
 
@@ -891,6 +979,109 @@ async function handleChangePassword(payload: ChangePasswordPayload): Promise<voi
     };
   } finally {
     isChangingPassword.value = false;
+  }
+}
+
+async function handleRunPushDiagnostics(): Promise<void> {
+  isPushDiagnosticsLoading.value = true;
+  pushDebugFeedback.value = null;
+
+  try {
+    pushDiagnostics.value = await getPushDiagnostics({
+      userId: sessionStore.user?.id ?? null,
+      userRole: sessionStore.user?.role ?? null,
+      route: route.fullPath,
+    });
+    pushDebugFeedback.value = {
+      type: 'success',
+      title: 'Diagnóstico generado',
+      message: 'Revisa el detalle mostrado en pantalla y la consola del navegador.',
+    };
+  } catch (error) {
+    pushDebugFeedback.value = {
+      type: 'error',
+      title: 'No se pudo generar el diagnóstico',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isPushDiagnosticsLoading.value = false;
+  }
+}
+
+async function handleRegisterPushTokenAgain(): Promise<void> {
+  isRegisteringPushAgain.value = true;
+  pushDebugFeedback.value = null;
+
+  try {
+    let permission = getNotificationPermission();
+
+    if (permission === 'default') {
+      permission = await requestPushPermission();
+    }
+
+    if (permission === 'denied') {
+      pushDebugFeedback.value = {
+        type: 'warning',
+        title: 'Permiso bloqueado',
+        message:
+          'Las notificaciones están bloqueadas. Debes habilitarlas en la configuración del navegador o celular.',
+      };
+      return;
+    }
+
+    await registerCurrentDeviceToken();
+    pushDiagnostics.value = await getPushDiagnostics({
+      userId: sessionStore.user?.id ?? null,
+      userRole: sessionStore.user?.role ?? null,
+      route: route.fullPath,
+    });
+    $q.notify({
+      type: 'positive',
+      icon: 'notifications_active',
+      message: 'Token FCM registrado para este usuario.',
+    });
+    pushDebugFeedback.value = {
+      type: 'success',
+      title: 'Token registrado',
+      message: 'El dispositivo quedó registrado en el backend para recibir FCM.',
+    };
+  } catch (error) {
+    pushDebugFeedback.value = {
+      type: 'error',
+      title: 'No se pudo registrar el token',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isRegisteringPushAgain.value = false;
+  }
+}
+
+async function handleSendDebugPushToMe(): Promise<void> {
+  isSendingDebugPush.value = true;
+  pushDebugFeedback.value = null;
+
+  try {
+    pushDebugSendResponse.value = await sendDebugNotificationToMe();
+    const hasTokens = pushDebugSendResponse.value.activeTokensCount > 0;
+    pushDebugFeedback.value = {
+      type: hasTokens ? 'success' : 'warning',
+      title: hasTokens ? 'Prueba enviada' : 'Sin tokens activos',
+      message: pushDebugSendResponse.value.message,
+    };
+    $q.notify({
+      type: hasTokens ? 'positive' : 'warning',
+      icon: hasTokens ? 'notifications_active' : 'notifications_off',
+      message: pushDebugSendResponse.value.message,
+      multiLine: true,
+    });
+  } catch (error) {
+    pushDebugFeedback.value = {
+      type: 'error',
+      title: 'No se pudo enviar la prueba',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isSendingDebugPush.value = false;
   }
 }
 

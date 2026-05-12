@@ -21,8 +21,54 @@ export type ForegroundPushMessage = {
   raw: MessagePayload;
 };
 
+export type PushDiagnostics = {
+  isSecureContext: boolean;
+  origin: string;
+  route: string;
+  userId: string | null;
+  userRole: string | null;
+  notificationPermission: NotificationPermission | 'unsupported';
+  hasNotificationApi: boolean;
+  hasServiceWorker: boolean;
+  hasPushManager: boolean;
+  hasServiceWorkerController: boolean;
+  serviceWorkerControllerScriptUrl: string | null;
+  serviceWorkerRegistrationScope: string | null;
+  serviceWorkerActiveScriptUrl: string | null;
+  serviceWorkerWaitingScriptUrl: string | null;
+  serviceWorkerInstallingScriptUrl: string | null;
+  serviceWorkerReady: boolean;
+  serviceWorkerReadyError: string | null;
+  hasPushSubscription: boolean;
+  pushSubscriptionEndpointPreview: string | null;
+  firebaseMessagingInitialized: boolean;
+  fcmTokenPreview: string | null;
+  fcmTokenAvailable: boolean;
+  storedTokenPreview: string | null;
+  storedTokenMatchesCurrent: boolean | null;
+  backendRegistrationStatus: string;
+};
+
+export type PushDiagnosticsContext = {
+  userId?: string | null;
+  userRole?: string | null;
+  route?: string | null;
+};
+
 function canUseBrowser(): boolean {
   return typeof window !== 'undefined';
+}
+
+export function maskPushToken(token: string | null | undefined): string | null {
+  if (!token) {
+    return null;
+  }
+
+  if (token.length <= 12) {
+    return `${token.slice(0, 3)}...`;
+  }
+
+  return `${token.slice(0, 6)}...${token.slice(-4)}`;
 }
 
 function readStoredToken(): string | null {
@@ -88,12 +134,6 @@ function timeout<T>(ms: number): Promise<T | null> {
 }
 
 async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
-  const existingRegistration = await navigator.serviceWorker.getRegistration();
-
-  if (existingRegistration) {
-    return existingRegistration;
-  }
-
   const readyRegistration = await Promise.race([
     navigator.serviceWorker.ready,
     timeout<ServiceWorkerRegistration>(SERVICE_WORKER_READY_TIMEOUT_MS),
@@ -105,6 +145,7 @@ async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration
     );
   }
 
+  console.info('[PUSH] service worker active:', readyRegistration.active?.scriptURL ?? 'none');
   return readyRegistration;
 }
 
@@ -135,7 +176,9 @@ export async function requestPushPermission(): Promise<NotificationPermission> {
     return 'denied';
   }
 
-  return Notification.requestPermission();
+  const permission = await Notification.requestPermission();
+  console.info('[PUSH] permission', permission);
+  return permission;
 }
 
 export async function getCurrentFcmToken(): Promise<string> {
@@ -164,6 +207,7 @@ export async function getCurrentFcmToken(): Promise<string> {
     throw new Error('Firebase no devolvio un token para este navegador.');
   }
 
+  console.info('[PUSH] FCM token obtained:', maskPushToken(token));
   return token;
 }
 
@@ -177,11 +221,106 @@ export async function registerCurrentDeviceToken(): Promise<string> {
   });
 
   persistStoredToken(token);
+  console.info('[PUSH] token registered in backend:', maskPushToken(token));
   return token;
+}
+
+export async function getPushDiagnostics(
+  context: PushDiagnosticsContext = {},
+): Promise<PushDiagnostics> {
+  const hasNotificationApi = canUseBrowser() && 'Notification' in window;
+  const hasServiceWorker = canUseBrowser() && 'serviceWorker' in navigator;
+  const hasPushManager = canUseBrowser() && 'PushManager' in window;
+  const notificationPermission = getNotificationPermission();
+  const storedToken = readStoredToken();
+  let registration: ServiceWorkerRegistration | null = null;
+  let readyRegistration: ServiceWorkerRegistration | null = null;
+  let serviceWorkerReadyError: string | null = null;
+  let pushSubscription: PushSubscription | null = null;
+  let fcmToken: string | null = null;
+
+  if (hasServiceWorker) {
+    registration = (await navigator.serviceWorker.getRegistration().catch(() => null)) ?? null;
+    readyRegistration =
+      (await Promise.race([
+        navigator.serviceWorker.ready,
+        timeout<ServiceWorkerRegistration>(SERVICE_WORKER_READY_TIMEOUT_MS),
+      ]).catch((error: unknown) => {
+        serviceWorkerReadyError = error instanceof Error ? error.message : String(error);
+        return null;
+      })) ?? null;
+
+    if (!readyRegistration && !serviceWorkerReadyError) {
+      serviceWorkerReadyError = 'navigator.serviceWorker.ready no resolvio a tiempo.';
+    }
+
+    const subscriptionRegistration = readyRegistration ?? registration;
+    pushSubscription =
+      (await subscriptionRegistration?.pushManager.getSubscription().catch(() => null)) ?? null;
+  }
+
+  const messaging = await getFirebaseMessaging();
+  const vapidKey = getFirebaseVapidKey();
+  const firebaseMessagingInitialized = Boolean(messaging);
+
+  if (
+    messaging &&
+    hasNotificationApi &&
+    notificationPermission === 'granted' &&
+    readyRegistration &&
+    vapidKey
+  ) {
+    fcmToken = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: readyRegistration,
+    }).catch(() => null);
+  }
+
+  const diagnostics: PushDiagnostics = {
+    isSecureContext: canUseBrowser() ? window.isSecureContext : false,
+    origin: canUseBrowser() ? window.location.origin : '',
+    route:
+      context.route ?? (canUseBrowser() ? window.location.pathname + window.location.search : ''),
+    userId: context.userId ?? null,
+    userRole: context.userRole ?? null,
+    notificationPermission,
+    hasNotificationApi,
+    hasServiceWorker,
+    hasPushManager,
+    hasServiceWorkerController: Boolean(hasServiceWorker && navigator.serviceWorker.controller),
+    serviceWorkerControllerScriptUrl:
+      hasServiceWorker && navigator.serviceWorker.controller
+        ? navigator.serviceWorker.controller.scriptURL
+        : null,
+    serviceWorkerRegistrationScope: (readyRegistration ?? registration)?.scope ?? null,
+    serviceWorkerActiveScriptUrl: (readyRegistration ?? registration)?.active?.scriptURL ?? null,
+    serviceWorkerWaitingScriptUrl: (readyRegistration ?? registration)?.waiting?.scriptURL ?? null,
+    serviceWorkerInstallingScriptUrl:
+      (readyRegistration ?? registration)?.installing?.scriptURL ?? null,
+    serviceWorkerReady: Boolean(readyRegistration),
+    serviceWorkerReadyError,
+    hasPushSubscription: Boolean(pushSubscription),
+    pushSubscriptionEndpointPreview: maskPushToken(pushSubscription?.endpoint),
+    firebaseMessagingInitialized,
+    fcmTokenPreview: maskPushToken(fcmToken),
+    fcmTokenAvailable: Boolean(fcmToken),
+    storedTokenPreview: maskPushToken(storedToken),
+    storedTokenMatchesCurrent: fcmToken ? storedToken === fcmToken : null,
+    backendRegistrationStatus:
+      fcmToken && storedToken === fcmToken
+        ? 'stored_token_matches_current'
+        : storedToken
+          ? 'stored_token_differs_or_current_unavailable'
+          : 'no_stored_token',
+  };
+
+  console.info('[PUSH] diagnostics', diagnostics);
+  return diagnostics;
 }
 
 export async function showSystemNotification(message: ForegroundPushMessage): Promise<boolean> {
   if (!canUseBrowser() || !('Notification' in window) || Notification.permission !== 'granted') {
+    console.info('[PUSH] system notification skipped: permission is not granted');
     return false;
   }
 
@@ -193,6 +332,7 @@ export async function showSystemNotification(message: ForegroundPushMessage): Pr
   const dedupeKey = `${message.data.type ?? 'push'}:${tag}`;
 
   if (wasSystemNotificationRecentlyShown(dedupeKey)) {
+    console.info('[PUSH] system notification deduped:', dedupeKey);
     return false;
   }
 
@@ -212,6 +352,7 @@ export async function showSystemNotification(message: ForegroundPushMessage): Pr
 
     if (registration) {
       await registration.showNotification(message.title, options);
+      console.info('[PUSH] system notification shown via service worker:', tag);
       return true;
     }
   }
@@ -223,6 +364,7 @@ export async function showSystemNotification(message: ForegroundPushMessage): Pr
     window.location.assign(route);
   };
 
+  console.info('[PUSH] system notification shown via Notification API:', tag);
   return true;
 }
 
@@ -251,6 +393,11 @@ export async function setupForegroundMessageListener(
 
   return onMessage(messaging, (payload) => {
     const data = payload.data ?? {};
+    console.info('[PUSH] foreground message received', {
+      type: data.type,
+      attendanceRecordId: data.attendanceRecordId,
+      notificationId: data.notificationId,
+    });
     handler({
       title: payload.notification?.title ?? data.title ?? 'Notificacion',
       body: payload.notification?.body ?? data.body ?? '',

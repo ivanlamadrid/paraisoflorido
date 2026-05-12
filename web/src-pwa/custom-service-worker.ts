@@ -40,6 +40,9 @@ import {
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 
 type PushNotificationData = Record<string, string>;
+const SW_VERSION = 'push-debug-20260512-001';
+
+console.log('[SW] version', SW_VERSION);
 
 self.skipWaiting();
 clientsClaim();
@@ -76,6 +79,11 @@ if (Object.values(firebaseConfig).every((value) => value.trim().length > 0)) {
   const messaging = getMessaging(firebaseApp);
 
   onBackgroundMessage(messaging, (payload) => {
+    console.log('[SW][PUSH] background message received', {
+      type: payload.data?.type,
+      attendanceRecordId: payload.data?.attendanceRecordId,
+      notificationId: payload.data?.notificationId,
+    });
     const data = (payload.data ?? {}) as PushNotificationData;
     const title = payload.notification?.title ?? data.title ?? 'Notificacion';
     const body = payload.notification?.body ?? data.body ?? '';
@@ -95,11 +103,13 @@ if (Object.values(firebaseConfig).every((value) => value.trim().length > 0)) {
       options.tag = tag;
     }
 
+    console.log('[SW][PUSH] showing notification', { title, tag, route: data.route ?? '/' });
     void self.registration.showNotification(title, options);
   });
 }
 
 self.addEventListener('notificationclick', (event) => {
+  console.log('[SW][PUSH] notification click');
   event.notification.close();
 
   const notificationData = event.notification.data as PushNotificationData | undefined;

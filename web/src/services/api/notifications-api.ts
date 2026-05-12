@@ -1,6 +1,7 @@
 import { api } from 'boot/axios';
 import type {
   AppNotification,
+  NotificationDebugSendResponse,
   NotificationPlatform,
   NotificationTestResponse,
   NotificationTokenResponse,
@@ -42,6 +43,12 @@ export async function markNotificationAsRead(
 
 export async function sendTestNotification(): Promise<NotificationTestResponse> {
   const { data } = await api.post<NotificationTestResponse>('/notifications/test');
+
+  return data;
+}
+
+export async function sendDebugNotificationToMe(): Promise<NotificationDebugSendResponse> {
+  const { data } = await api.post<NotificationDebugSendResponse>('/notifications/debug/send-to-me');
 
   return data;
 }
