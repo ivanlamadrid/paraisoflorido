@@ -71,7 +71,6 @@
           </div>
 
           <div v-if="!isDesktop && sessionStore.user && !isSidebarMini" class="column q-gutter-sm">
-            <PushNotificationToggle />
             <q-btn
               flat
               color="primary"
@@ -133,8 +132,6 @@
               </div>
             </div>
 
-            <PushNotificationToggle compact />
-
             <q-btn
               flat
               color="primary"
@@ -161,11 +158,12 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import type { QNotifyCreateOptions } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
-import PushNotificationToggle from 'components/notifications/PushNotificationToggle.vue';
 import SchoolMark from 'components/ui/SchoolMark.vue';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import {
+  registerCurrentDeviceToken,
   setupForegroundMessageListener,
+  showSystemNotification,
   type ForegroundPushMessage,
 } from 'src/services/push-notifications';
 import { useInstitutionStore } from 'src/stores/institution-store';
@@ -241,17 +239,6 @@ const roleSummary = computed(() => {
   return 'Gestión administrativa institucional';
 });
 
-function buildNotificationsNavItem(): ShellNavItem {
-  return {
-    key: 'notifications',
-    label: 'Notificaciones',
-    caption: 'Push e historial interno',
-    icon: 'notifications',
-    path: '/notificaciones',
-    badgeCount: notificationsStore.unreadCount,
-  };
-}
-
 const navigationItems = computed<ShellNavItem[]>(() => {
   if (!sessionStore.user) {
     return [];
@@ -297,7 +284,6 @@ const navigationItems = computed<ShellNavItem[]>(() => {
         icon: 'campaign',
         path: '/comunicados',
       },
-      buildNotificationsNavItem(),
     ];
   }
 
@@ -342,7 +328,6 @@ const navigationItems = computed<ShellNavItem[]>(() => {
         path: '/comunicados',
         badgeCount: studentNotificationsStore.unreadCount,
       },
-      buildNotificationsNavItem(),
     ];
   }
 
@@ -386,7 +371,6 @@ const navigationItems = computed<ShellNavItem[]>(() => {
         icon: 'campaign',
         path: '/tutor/comunicados',
       },
-      buildNotificationsNavItem(),
       {
         key: 'tutor-account',
         label: 'Cuenta',
@@ -406,7 +390,6 @@ const navigationItems = computed<ShellNavItem[]>(() => {
       icon: 'campaign',
       path: '/portal/comunicados',
     },
-    buildNotificationsNavItem(),
     {
       key: 'admin-support',
       label: 'Soporte',
@@ -457,7 +440,7 @@ const navigationItems = computed<ShellNavItem[]>(() => {
 
 const activeNavigationKey = computed(() => {
   if (route.path.startsWith('/notificaciones')) {
-    return 'notifications';
+    return sessionStore.user?.role === 'student' ? 'student-today' : 'admin-support';
   }
 
   if (route.path.startsWith('/portal/comunicados')) {
@@ -633,6 +616,8 @@ function handleForegroundPush(message: ForegroundPushMessage): void {
     void studentNotificationsStore.refreshAttendance({ allowToast: false });
   }
 
+  void showSystemNotification(message).catch(() => undefined);
+
   if (sessionStore.user?.role === 'student' && message.data.type === 'announcement_published') {
     void studentNotificationsStore.refreshAnnouncements({ allowToast: false });
   }
@@ -697,6 +682,10 @@ watch(
 
     void notificationsStore.refresh();
     void startForegroundPush();
+
+    if (typeof window !== 'undefined' && window.Notification?.permission === 'granted') {
+      void registerCurrentDeviceToken().catch(() => undefined);
+    }
   },
   { immediate: true },
 );

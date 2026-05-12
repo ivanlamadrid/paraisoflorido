@@ -79,16 +79,23 @@ if (Object.values(firebaseConfig).every((value) => value.trim().length > 0)) {
     const data = (payload.data ?? {}) as PushNotificationData;
     const title = payload.notification?.title ?? data.title ?? 'Notificacion';
     const body = payload.notification?.body ?? data.body ?? '';
+    const tag = data.attendanceRecordId ?? data.notificationId ?? data.type;
 
-    void self.registration.showNotification(title, {
+    const options: NotificationOptions = {
       body,
       icon: '/icons/icon-192x192.png',
-      badge: '/icons/favicon-96x96.png',
+      badge: '/icons/favicon-128x128.png',
       data: {
         ...data,
         route: data.route ?? '/',
       },
-    });
+    };
+
+    if (tag) {
+      options.tag = tag;
+    }
+
+    void self.registration.showNotification(title, options);
   });
 }
 

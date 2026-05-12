@@ -10,7 +10,9 @@ import {
 } from 'src/services/api/notifications-api';
 
 const STORED_FCM_TOKEN_KEY = 'colegio.push.fcm-token';
+const SHOWN_SYSTEM_NOTIFICATION_KEY = 'colegio.push.shown-system-notifications';
 const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
+const SYSTEM_NOTIFICATION_DEDUPE_TTL_MS = 2 * 60 * 1000;
 
 export type ForegroundPushMessage = {
   title: string;
@@ -42,6 +44,41 @@ function persistStoredToken(token: string | null): void {
   }
 
   window.localStorage.setItem(STORED_FCM_TOKEN_KEY, token);
+}
+
+function readShownSystemNotifications(): Record<string, number> {
+  if (!canUseBrowser()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(SHOWN_SYSTEM_NOTIFICATION_KEY) ?? '{}') as Record<
+      string,
+      number
+    >;
+  } catch {
+    return {};
+  }
+}
+
+function wasSystemNotificationRecentlyShown(key: string): boolean {
+  if (!canUseBrowser()) {
+    return false;
+  }
+
+  const now = Date.now();
+  const items = readShownSystemNotifications();
+  const recentItems = Object.fromEntries(
+    Object.entries(items).filter(
+      ([, timestamp]) => now - timestamp < SYSTEM_NOTIFICATION_DEDUPE_TTL_MS,
+    ),
+  );
+  const wasShown = Boolean(recentItems[key]);
+
+  recentItems[key] = now;
+  window.localStorage.setItem(SHOWN_SYSTEM_NOTIFICATION_KEY, JSON.stringify(recentItems));
+
+  return wasShown;
 }
 
 function timeout<T>(ms: number): Promise<T | null> {
@@ -141,6 +178,52 @@ export async function registerCurrentDeviceToken(): Promise<string> {
 
   persistStoredToken(token);
   return token;
+}
+
+export async function showSystemNotification(message: ForegroundPushMessage): Promise<boolean> {
+  if (!canUseBrowser() || !('Notification' in window) || Notification.permission !== 'granted') {
+    return false;
+  }
+
+  const tag =
+    message.data.attendanceRecordId ??
+    message.data.notificationId ??
+    message.data.type ??
+    `${message.title}:${message.body}`;
+  const dedupeKey = `${message.data.type ?? 'push'}:${tag}`;
+
+  if (wasSystemNotificationRecentlyShown(dedupeKey)) {
+    return false;
+  }
+
+  const options: NotificationOptions = {
+    body: message.body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/favicon-128x128.png',
+    tag,
+    data: {
+      ...message.data,
+      route: message.data.route ?? '/',
+    },
+  };
+
+  if ('serviceWorker' in navigator) {
+    const registration = await navigator.serviceWorker.ready.catch(() => null);
+
+    if (registration) {
+      await registration.showNotification(message.title, options);
+      return true;
+    }
+  }
+
+  const notification = new Notification(message.title, options);
+  notification.onclick = () => {
+    const route = message.data.route ?? '/';
+    window.focus();
+    window.location.assign(route);
+  };
+
+  return true;
 }
 
 export async function unregisterCurrentDeviceToken(): Promise<void> {

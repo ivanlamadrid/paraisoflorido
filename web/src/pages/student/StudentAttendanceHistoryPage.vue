@@ -208,6 +208,10 @@
                 Consulta tu situación del día y revisa si tu entrada de hoy ya está registrada.
               </p>
 
+              <div class="q-mt-md">
+                <PushNotificationToggle />
+              </div>
+
               <StatusBanner
                 class="q-mt-lg"
                 :variant="todayOverviewBanner.type"
@@ -479,6 +483,7 @@ import ResponsiveSectionNav, {
   type SectionNavItem,
 } from 'components/navigation/ResponsiveSectionNav.vue';
 import PasswordChangeCard from 'components/auth/PasswordChangeCard.vue';
+import PushNotificationToggle from 'components/notifications/PushNotificationToggle.vue';
 import StudentInstitutionalProfileView from 'components/student/StudentInstitutionalProfileView.vue';
 import StudentQrCredentialCard from 'components/student/StudentQrCredentialCard.vue';
 import PageIntroCard from 'components/ui/PageIntroCard.vue';

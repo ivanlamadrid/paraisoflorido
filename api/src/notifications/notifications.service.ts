@@ -189,6 +189,10 @@ export class NotificationsService {
       skipped: 0,
     };
 
+    this.logger.log(
+      `FCM delivery notificationId=${notification.id} userId=${userId} activeTokens=${activeTokens.length}`,
+    );
+
     if (activeTokens.length === 0) {
       summary.skipped = 1;
       await this.createDeliveryAttempt({
@@ -200,6 +204,10 @@ export class NotificationsService {
         errorMessage:
           'El usuario no tiene dispositivos activos para notificaciones push.',
       });
+
+      this.logger.warn(
+        `FCM delivery skipped notificationId=${notification.id} userId=${userId} reason=no_active_tokens`,
+      );
 
       return summary;
     }
@@ -226,6 +234,10 @@ export class NotificationsService {
         errorCode: result.errorCode,
         errorMessage: result.errorMessage,
       });
+
+      this.logger.log(
+        `FCM delivery attempt notificationId=${notification.id} userId=${userId} tokenId=${token.id} token=${this.maskToken(token.token)} status=${result.status} errorCode=${result.errorCode ?? 'none'}`,
+      );
     }
 
     return summary;
@@ -240,6 +252,9 @@ export class NotificationsService {
 
     for (const recipient of recipients) {
       const body = `${this.getStudentDisplayName(recipient.student)} registró entrada el ${this.formatDateInLima(input.markedAt)} a las ${this.formatTimeInLima(input.markedAt)}.`;
+      this.logger.log(
+        `Attendance entry notification resolved attendanceRecordId=${input.attendanceRecordId} studentId=${input.studentId} resolvedUserId=${recipient.userId}`,
+      );
       const notification = await this.createInternalNotification({
         userId: recipient.userId,
         studentId: input.studentId,
@@ -252,6 +267,8 @@ export class NotificationsService {
           attendanceRecordId: input.attendanceRecordId,
           markedAt: input.markedAt.toISOString(),
           route: '/mi-asistencia',
+          title: 'Entrada registrada',
+          body,
         },
       });
 
@@ -293,6 +310,14 @@ export class NotificationsService {
     }
 
     return [{ userId: student.user.id, student }];
+  }
+
+  private maskToken(token: string): string {
+    if (token.length <= 12) {
+      return `${token.slice(0, 3)}...`;
+    }
+
+    return `${token.slice(0, 6)}...${token.slice(-4)}`;
   }
 
   async sendTestNotification(
