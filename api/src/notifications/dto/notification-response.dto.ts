@@ -53,6 +53,60 @@ export class NotificationDebugSendResponseDto {
   delivery: NotificationDeliverySummaryDto;
 }
 
+export class WebPushSubscriptionResponseDto {
+  id: string;
+  enabled: boolean;
+  lastSeenAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export class WebPushDebugSubscriptionDto {
+  id: string;
+  endpointPreview: string;
+  lastSeenAt: string | null;
+}
+
+export class WebPushDeliveryResultDto {
+  subscriptionId: string | null;
+  endpointPreview: string | null;
+  status: 'sent' | 'failed' | 'invalid_token' | 'skipped';
+  statusCode: number | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+export class WebPushDeliverySummaryDto {
+  enabled: boolean;
+  configured: boolean;
+  totalSubscriptions: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  disabledSubscriptions: number;
+  results: WebPushDeliveryResultDto[];
+}
+
+export class WebPushDebugResponseDto {
+  userId: string;
+  role: string;
+  webPushEnabled: boolean;
+  webPushConfigured: boolean;
+  vapidSubjectConfigured: boolean;
+  vapidPublicKeyConfigured: boolean;
+  vapidPrivateKeyConfigured: boolean;
+  activeSubscriptionsCount: number;
+  subscriptions: WebPushDebugSubscriptionDto[];
+}
+
+export class WebPushDebugSendResponseDto {
+  userId: string;
+  role: string;
+  activeSubscriptionsCount: number;
+  message: string;
+  delivery: WebPushDeliverySummaryDto;
+}
+
 export class MarkNotificationReadResponseDto {
   id: string;
   readAt: string;

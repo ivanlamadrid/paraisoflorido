@@ -1,100 +1,106 @@
-# Push Notifications con Firebase Cloud Messaging
+# Push Notifications PWA con Web Push directo
 
 ## Resumen
 
-El sistema usa Firebase Cloud Messaging como canal push real para la PWA/web. Las notificaciones internas quedan guardadas en PostgreSQL como respaldo y se muestran dentro de la app desde `/notificaciones`.
+La PWA usa Web Push directo como canal principal para notificaciones reales del sistema. El flujo estándar es:
 
-El push no es una garantia absoluta de entrega: depende del permiso del usuario, soporte del navegador, sistema operativo, ahorro de bateria, conexion y politicas de Web Push. La asistencia no depende de Firebase; si FCM falla, el registro de asistencia se mantiene y el intento queda auditado en `notification_delivery_attempts`.
+- Frontend: `navigator.serviceWorker.ready` y `registration.pushManager.subscribe(...)`.
+- Backend: `web-push.sendNotification(subscription, payload)`.
+- Service worker: evento `push` y `self.registration.showNotification(...)`.
 
-## Configuracion Firebase
+Firebase Cloud Messaging puede quedar como diagnóstico o canal secundario, pero la PWA no depende de FCM para mostrar notificaciones reales. La notificación interna en PostgreSQL sigue siendo el respaldo confiable: el push no es 100% garantizado porque depende de permisos, navegador, sistema operativo, ahorro de batería y conexión.
 
-1. Crear o usar el proyecto en Firebase Console.
-2. Registrar una Web App y copiar el `firebaseConfig`.
-3. Crear una VAPID key en Project settings > Cloud Messaging > Web Push certificates.
-4. Descargar el Service Account JSON desde Project settings > Service accounts.
-5. Guardar el JSON en:
+La asistencia no depende del push. Si Web Push o FCM fallan, la entrada queda registrada.
 
-```txt
-api/.secrets/firebase-service-account.json
+## Configuración Web Push
+
+Generar un par VAPID propio para Web Push directo:
+
+```bash
+npx web-push generate-vapid-keys
 ```
 
-No subir ese archivo al repositorio.
-
-## Variables de entorno
-
-Frontend `web/.env`:
-
-```env
-VITE_ATTENDANCE_EXIT_ENABLED=false
-VITE_FIREBASE_API_KEY=REEMPLAZAR_AQUI
-VITE_FIREBASE_AUTH_DOMAIN=REEMPLAZAR_AQUI
-VITE_FIREBASE_PROJECT_ID=REEMPLAZAR_AQUI
-VITE_FIREBASE_STORAGE_BUCKET=REEMPLAZAR_AQUI
-VITE_FIREBASE_MESSAGING_SENDER_ID=REEMPLAZAR_AQUI
-VITE_FIREBASE_APP_ID=REEMPLAZAR_AQUI
-VITE_FIREBASE_VAPID_KEY=REEMPLAZAR_AQUI
-```
+No usar solo la VAPID pública de Firebase: `web-push` necesita clave pública y privada del mismo par.
 
 Backend `api/.env`:
 
 ```env
-ATTENDANCE_EXIT_ENABLED=false
-FIREBASE_SERVICE_ACCOUNT_PATH=api/.secrets/firebase-service-account.json
-FIREBASE_PROJECT_ID=REEMPLAZAR_AQUI
+WEB_PUSH_ENABLED=true
+WEB_PUSH_VAPID_SUBJECT=mailto:admin@tudominio.com
+WEB_PUSH_VAPID_PUBLIC_KEY=REEMPLAZAR_AQUI
+WEB_PUSH_VAPID_PRIVATE_KEY=REEMPLAZAR_AQUI
 ```
 
-El backend acepta rutas relativas desde la raiz del monorepo o desde `api`.
+Frontend `web/.env`:
 
-## Migracion
+```env
+VITE_WEB_PUSH_PUBLIC_KEY=REEMPLAZAR_AQUI
+```
 
-Ejecutar las migraciones antes de probar:
+`VITE_WEB_PUSH_PUBLIC_KEY` debe ser exactamente la clave pública del mismo par VAPID usado por la API.
+
+## Migración
+
+Ejecutar migraciones antes de probar:
 
 ```bash
 npm run migration:run --workspace api
 ```
 
-Esto crea:
+Esto agrega `web_push_subscriptions` y permite registrar intentos con proveedor `web_push`.
 
-- `notification_tokens`
-- `notifications`
-- `notification_delivery_attempts`
+## Prueba por niveles
 
-## Como probar
+Abrir sesión como estudiante y entrar a:
 
-1. Ejecutar la API.
-2. Ejecutar la web en modo PWA, por ejemplo:
-
-```bash
-npm run dev:pwa --workspace web
+```txt
+/mi-asistencia?debugPush=1
 ```
 
-3. Iniciar sesion.
-4. Abrir `/notificaciones`.
-5. Hacer click en `Activar notificaciones`.
-6. Aceptar el permiso del navegador.
-7. Hacer click en `Probar` o llamar `POST /notifications/test`.
-8. Con la app abierta, verificar el toast foreground.
-9. Con la PWA en segundo plano o cerrada, verificar que el service worker muestre la notificacion si el navegador lo permite.
-10. Hacer click en la notificacion y confirmar que abre o enfoca la app.
-11. Registrar entrada por scan, manual u offline sync y verificar:
-    - se crea una fila en `notifications`
-    - el tipo interno es `attendance_entry_marked`
-    - se intenta enviar push FCM al usuario `student` asociado al estudiante
-    - el mensaje incluye nombre del estudiante, fecha y hora de entrada
-    - se registra el intento en `notification_delivery_attempts`
+La tarjeta temporal no aparece en el menú ni en navegación normal.
 
-## Limitaciones
+1. `Probar notificación local`: usa `new Notification(...)` sin backend. Si falla, el problema es permiso, navegador o sistema operativo.
+2. `Probar notificación con service worker`: usa `registration.showNotification(...)`. Si falla, el problema está en el service worker/PWA.
+3. `Registrar Web Push`: crea o actualiza la suscripción Push API en el backend para el usuario actual.
+4. `Ver diagnóstico backend`: confirma `WEB_PUSH_ENABLED`, VAPID configurado y cantidad de suscripciones activas.
+5. `Enviar prueba Web Push a mi usuario`: llama `POST /notifications/web-push/debug/send-to-me` y envía una notificación real al usuario autenticado.
 
-- Si el usuario no acepta el permiso, no hay push.
-- Si el navegador no soporta Push API/Service Worker, no hay push.
-- Si el sistema operativo bloquea notificaciones, la app no puede forzarlas.
-- Si el dispositivo esta sin internet, la notificacion puede llegar tarde o no mostrarse.
-- Si el token FCM expira o Firebase lo invalida, el backend lo desactiva y el navegador debe registrarse otra vez.
-- En iOS, Web Push requiere que la PWA este instalada en pantalla de inicio y que el sistema lo permita.
-- En Android Chrome suele funcionar de forma mas directa.
-- No existe rol `parent` o `guardian` real en el sistema. En esta primera version, la asistencia notifica al usuario `student` asociado al estudiante. El resolver `resolveAttendanceNotificationRecipients` queda preparado para ampliar destinatarios si en el futuro se crea una relacion real con apoderados.
-- El sistema esta configurado en modo solo entrada con `ATTENDANCE_EXIT_ENABLED=false` y `VITE_ATTENDANCE_EXIT_ENABLED=false`. No se registra salida, no se muestra salida, no se genera pendiente por salida y no se penaliza la falta de salida.
-- La notificacion FCM de asistencia se envia cuando se registra entrada. El padre o apoderado la recibe cuando usa la cuenta del estudiante.
+## Asistencia
+
+Con `ATTENDANCE_EXIT_ENABLED=false`, el sistema opera en modo solo entrada.
+
+Cuando el auxiliar registra una entrada:
+
+- se crea la notificación interna `attendance_entry_marked`;
+- se resuelve el usuario `student` asociado al estudiante;
+- se envía Web Push directo solo a ese usuario;
+- no se envía al auxiliar, director ni a todos;
+- no se envía salida.
+
+El padre o apoderado recibe la notificación porque usa la cuenta del estudiante. No existe aún un rol `parent` o `guardian` real.
+
+Payload esperado:
+
+```json
+{
+  "title": "Entrada registrada",
+  "body": "Juan Pérez registró entrada el 17/05/2026 a las 07:42.",
+  "route": "/mi-asistencia",
+  "type": "attendance_entry_marked"
+}
+```
+
+## PWA vieja o service worker cacheado
+
+Si el diagnóstico muestra un service worker viejo:
+
+1. cerrar la PWA;
+2. abrir el sitio desde el navegador;
+3. recargar;
+4. si sigue viejo, borrar datos del sitio;
+5. volver a activar notificaciones.
+
+La versión del service worker se imprime en consola como `[SW] version`.
 
 ## Archivos sensibles
 

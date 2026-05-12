@@ -21,6 +21,7 @@ import { StudentEnrollmentStatus } from '../common/enums/student-enrollment-stat
 import { UserRole } from '../common/enums/user-role.enum';
 import { InstitutionService } from '../institution/institution.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WebPushService } from '../notifications/web-push.service';
 import { StudentEnrollment } from '../students/entities/student-enrollment.entity';
 import { Student } from '../students/entities/student.entity';
 import { TutorAssignment } from '../users/entities/tutor-assignment.entity';
@@ -197,6 +198,7 @@ export class AttendanceService {
     private readonly configService: ConfigService,
     private readonly institutionService: InstitutionService,
     private readonly notificationsService: NotificationsService,
+    private readonly webPushService: WebPushService,
   ) {}
 
   private isAttendanceExitEnabled(): boolean {
@@ -1435,11 +1437,25 @@ export class AttendanceService {
     }
 
     try {
-      await this.notificationsService.notifyAttendanceEntryMarked({
-        attendanceRecordId: attendanceRecord.id,
-        studentId: attendanceRecord.studentId,
-        markedAt: attendanceRecord.markedAt,
-      });
+      const webPushEnabled = this.webPushService.isEnabled();
+      const notifications =
+        await this.notificationsService.notifyAttendanceEntryMarked(
+          {
+            attendanceRecordId: attendanceRecord.id,
+            studentId: attendanceRecord.studentId,
+            markedAt: attendanceRecord.markedAt,
+          },
+          { sendFcm: !webPushEnabled },
+        );
+
+      if (webPushEnabled) {
+        await this.webPushService.sendAttendanceEntryToStudent({
+          attendanceRecordId: attendanceRecord.id,
+          studentId: attendanceRecord.studentId,
+          markedAt: attendanceRecord.markedAt,
+          notification: notifications[0] ?? null,
+        });
+      }
     } catch (error) {
       const message =
         error instanceof Error

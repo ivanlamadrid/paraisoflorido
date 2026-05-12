@@ -56,3 +56,57 @@ export interface NotificationDebugSendResponse {
   notification: AppNotification;
   delivery: NotificationDeliverySummary;
 }
+
+export interface WebPushSubscriptionResponse {
+  id: string;
+  enabled: boolean;
+  lastSeenAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebPushDebugSubscription {
+  id: string;
+  endpointPreview: string;
+  lastSeenAt: string | null;
+}
+
+export interface WebPushDeliveryResult {
+  subscriptionId: string | null;
+  endpointPreview: string | null;
+  status: 'sent' | 'failed' | 'invalid_token' | 'skipped';
+  statusCode: number | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+export interface WebPushDeliverySummary {
+  enabled: boolean;
+  configured: boolean;
+  totalSubscriptions: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  disabledSubscriptions: number;
+  results: WebPushDeliveryResult[];
+}
+
+export interface WebPushDebugResponse {
+  userId: string;
+  role: string;
+  webPushEnabled: boolean;
+  webPushConfigured: boolean;
+  vapidSubjectConfigured: boolean;
+  vapidPublicKeyConfigured: boolean;
+  vapidPrivateKeyConfigured: boolean;
+  activeSubscriptionsCount: number;
+  subscriptions: WebPushDebugSubscription[];
+}
+
+export interface WebPushDebugSendResponse {
+  userId: string;
+  role: string;
+  activeSubscriptionsCount: number;
+  message: string;
+  delivery: WebPushDeliverySummary;
+}

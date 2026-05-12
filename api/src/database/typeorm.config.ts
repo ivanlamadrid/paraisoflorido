@@ -23,6 +23,7 @@ import { SchoolYearPreparationLog } from '../institution/entities/school-year-pr
 import { NotificationDeliveryAttempt } from '../notifications/entities/notification-delivery-attempt.entity';
 import { NotificationToken } from '../notifications/entities/notification-token.entity';
 import { Notification } from '../notifications/entities/notification.entity';
+import { WebPushSubscription } from '../notifications/entities/web-push-subscription.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentChangeLog } from '../students/entities/student-change-log.entity';
 import { StudentContact } from '../students/entities/student-contact.entity';
@@ -36,6 +37,7 @@ import { AddStudentSituationFollowUpsAndConsents1744700000000 } from './migratio
 import { AddSchoolYearPreparationLogs1744800000000 } from './migrations/1744800000000-add-school-year-preparation-logs';
 import { CreateNotifications1744900000000 } from './migrations/1744900000000-create-notifications';
 import { AddAttendanceEntryNotificationType1745000000000 } from './migrations/1745000000000-add-attendance-entry-notification-type';
+import { CreateWebPushSubscriptions1745100000000 } from './migrations/1745100000000-create-web-push-subscriptions';
 
 interface DatabaseConnectionConfig {
   nodeEnv: string;
@@ -78,6 +80,7 @@ export function buildTypeOrmOptions(
       NotificationToken,
       Notification,
       NotificationDeliveryAttempt,
+      WebPushSubscription,
     ],
     migrations: [
       CreateUsersAndPasswordResetLogs1743520000000,
@@ -96,6 +99,7 @@ export function buildTypeOrmOptions(
       AddSchoolYearPreparationLogs1744800000000,
       CreateNotifications1744900000000,
       AddAttendanceEntryNotificationType1745000000000,
+      CreateWebPushSubscriptions1745100000000,
     ],
     synchronize: false,
     logging: config.nodeEnv !== 'production',

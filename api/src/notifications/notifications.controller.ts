@@ -19,12 +19,23 @@ import {
   NotificationResponseDto,
   NotificationTestResponseDto,
   NotificationTokenResponseDto,
+  WebPushDebugResponseDto,
+  WebPushDebugSendResponseDto,
+  WebPushSubscriptionResponseDto,
 } from './dto/notification-response.dto';
 import { NotificationsService } from './notifications.service';
+import {
+  RegisterWebPushSubscriptionDto,
+  UnregisterWebPushSubscriptionDto,
+} from './dto/web-push-subscription.dto';
+import { WebPushService } from './web-push.service';
 
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly webPushService: WebPushService,
+  ) {}
 
   @Post('tokens')
   registerToken(
@@ -41,6 +52,41 @@ export class NotificationsController {
     @Body() dto: UnregisterNotificationTokenDto,
   ): Promise<{ ok: true }> {
     return this.notificationsService.unregisterToken(authUser.id, dto.token);
+  }
+
+  @Post('web-push/subscriptions')
+  registerWebPushSubscription(
+    @AuthUser() authUser: AuthenticatedRequestUser,
+    @Body() dto: RegisterWebPushSubscriptionDto,
+    @Headers('user-agent') userAgent?: string,
+  ): Promise<WebPushSubscriptionResponseDto> {
+    return this.webPushService.registerSubscription(
+      authUser.id,
+      dto,
+      userAgent,
+    );
+  }
+
+  @Delete('web-push/subscriptions/current')
+  unregisterCurrentWebPushSubscription(
+    @AuthUser() authUser: AuthenticatedRequestUser,
+    @Body() dto: UnregisterWebPushSubscriptionDto,
+  ): Promise<{ ok: true }> {
+    return this.webPushService.unregisterSubscription(authUser.id, dto);
+  }
+
+  @Get('web-push/debug/me')
+  getWebPushDebugInfo(
+    @AuthUser() authUser: AuthenticatedRequestUser,
+  ): Promise<WebPushDebugResponseDto> {
+    return this.webPushService.getDebugInfo(authUser);
+  }
+
+  @Post('web-push/debug/send-to-me')
+  sendWebPushDebugToMe(
+    @AuthUser() authUser: AuthenticatedRequestUser,
+  ): Promise<WebPushDebugSendResponseDto> {
+    return this.webPushService.sendDebugToUser(authUser);
   }
 
   @Get()

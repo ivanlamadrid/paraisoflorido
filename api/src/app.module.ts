@@ -54,6 +54,15 @@ import { UsersModule } from './users/users.module';
           .truthy('true')
           .falsy('false')
           .default(false),
+        WEB_PUSH_ENABLED: Joi.boolean()
+          .truthy('true')
+          .falsy('false')
+          .default(true),
+        WEB_PUSH_VAPID_SUBJECT: Joi.string().default(
+          'mailto:admin@tudominio.com',
+        ),
+        WEB_PUSH_VAPID_PUBLIC_KEY: Joi.string().allow('').optional(),
+        WEB_PUSH_VAPID_PRIVATE_KEY: Joi.string().allow('').optional(),
         FIREBASE_SERVICE_ACCOUNT_PATH: Joi.string().optional(),
         FIREBASE_PROJECT_ID: Joi.string().optional(),
       }),

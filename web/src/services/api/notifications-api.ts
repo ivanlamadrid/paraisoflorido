@@ -5,6 +5,9 @@ import type {
   NotificationPlatform,
   NotificationTestResponse,
   NotificationTokenResponse,
+  WebPushDebugResponse,
+  WebPushDebugSendResponse,
+  WebPushSubscriptionResponse,
 } from 'src/types/notifications';
 
 export async function registerNotificationToken(payload: {
@@ -49,6 +52,47 @@ export async function sendTestNotification(): Promise<NotificationTestResponse> 
 
 export async function sendDebugNotificationToMe(): Promise<NotificationDebugSendResponse> {
   const { data } = await api.post<NotificationDebugSendResponse>('/notifications/debug/send-to-me');
+
+  return data;
+}
+
+export async function registerWebPushSubscription(payload: {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  userAgent?: string;
+}): Promise<WebPushSubscriptionResponse> {
+  const { data } = await api.post<WebPushSubscriptionResponse>(
+    '/notifications/web-push/subscriptions',
+    payload,
+  );
+
+  return data;
+}
+
+export async function unregisterWebPushSubscription(endpoint: string): Promise<{ ok: true }> {
+  const { data } = await api.delete<{ ok: true }>(
+    '/notifications/web-push/subscriptions/current',
+    {
+      data: { endpoint },
+    },
+  );
+
+  return data;
+}
+
+export async function getWebPushDebugInfo(): Promise<WebPushDebugResponse> {
+  const { data } = await api.get<WebPushDebugResponse>('/notifications/web-push/debug/me');
+
+  return data;
+}
+
+export async function sendWebPushDebugToMe(): Promise<WebPushDebugSendResponse> {
+  const { data } = await api.post<WebPushDebugSendResponse>(
+    '/notifications/web-push/debug/send-to-me',
+  );
 
   return data;
 }

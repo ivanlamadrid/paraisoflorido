@@ -214,39 +214,59 @@
 
               <q-card v-if="isPushDebugEnabled" flat bordered class="history-card q-mt-md">
                 <q-card-section class="ui-card-body">
-                  <div class="ui-eyebrow">Diagnóstico de notificaciones</div>
+                  <div class="ui-eyebrow">Diagnóstico de notificaciones reales</div>
                   <div class="text-subtitle2 text-weight-bold q-mt-sm">
-                    Prueba temporal del dispositivo actual
+                    Pruebas temporales del dispositivo actual
                   </div>
                   <div class="row q-col-gutter-sm q-mt-md">
                     <div class="col-12 col-sm-auto">
                       <q-btn
                         color="primary"
-                        icon="bug_report"
-                        label="Ver diagnóstico push"
+                        icon="notifications"
+                        label="Probar notificación local"
                         no-caps
-                        :loading="isPushDiagnosticsLoading"
-                        @click="handleRunPushDiagnostics"
+                        :loading="isTestingLocalNotification"
+                        @click="handleTestLocalNotification"
                       />
                     </div>
                     <div class="col-12 col-sm-auto">
                       <q-btn
                         color="secondary"
-                        icon="sync"
-                        label="Registrar token otra vez"
+                        icon="settings_applications"
+                        label="Probar notificación con service worker"
                         no-caps
-                        :loading="isRegisteringPushAgain"
-                        @click="handleRegisterPushTokenAgain"
+                        :loading="isTestingServiceWorkerNotification"
+                        @click="handleTestServiceWorkerNotification"
+                      />
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                      <q-btn
+                        color="positive"
+                        icon="app_registration"
+                        label="Registrar Web Push"
+                        no-caps
+                        :loading="isRegisteringWebPush"
+                        @click="handleRegisterWebPush"
+                      />
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                      <q-btn
+                        color="info"
+                        icon="bug_report"
+                        label="Ver diagnóstico backend"
+                        no-caps
+                        :loading="isPushDiagnosticsLoading"
+                        @click="handleRunWebPushDiagnostics"
                       />
                     </div>
                     <div class="col-12 col-sm-auto">
                       <q-btn
                         color="positive"
                         icon="notifications_active"
-                        label="Enviar prueba a mi usuario"
+                        label="Enviar prueba Web Push a mi usuario"
                         no-caps
-                        :loading="isSendingDebugPush"
-                        @click="handleSendDebugPushToMe"
+                        :loading="isSendingWebPushDebug"
+                        @click="handleSendWebPushDebugToMe"
                       />
                     </div>
                   </div>
@@ -550,18 +570,19 @@ import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
-import { sendDebugNotificationToMe } from 'src/services/api/notifications-api';
+import { getWebPushDebugInfo, sendWebPushDebugToMe } from 'src/services/api/notifications-api';
 import { getMyStudentInstitutionalProfileCached } from 'src/services/api/students-api';
 import {
-  getNotificationPermission,
-  getPushDiagnostics,
-  registerCurrentDeviceToken,
-  requestPushPermission,
-  type PushDiagnostics,
-} from 'src/services/push-notifications';
+  getWebPushDiagnostics,
+  registerWebPushSubscription,
+  testLocalNotification,
+  testServiceWorkerNotification,
+  type NotificationTestResult,
+  type WebPushDiagnostics,
+} from 'src/services/web-push-notifications';
 import { useSessionStore } from 'src/stores/session-store';
 import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
-import type { NotificationDebugSendResponse } from 'src/types/notifications';
+import type { WebPushDebugResponse, WebPushDebugSendResponse } from 'src/types/notifications';
 import type { AttendanceHistoryItem } from 'src/types/attendance';
 import type { ChangePasswordPayload } from 'src/types/session';
 import type { StudentDetail } from 'src/types/students';
@@ -635,29 +656,43 @@ const todayFeedback = ref<FeedbackState | null>(null);
 const historyFeedback = ref<FeedbackState | null>(null);
 const passwordFeedback = ref<FeedbackState | null>(null);
 const pushDebugFeedback = ref<FeedbackState | null>(null);
-const pushDiagnostics = ref<PushDiagnostics | null>(null);
-const pushDebugSendResponse = ref<NotificationDebugSendResponse | null>(null);
+const pushDiagnostics = ref<WebPushDiagnostics | null>(null);
+const webPushBackendDebug = ref<WebPushDebugResponse | null>(null);
+const webPushDebugSendResponse = ref<WebPushDebugSendResponse | null>(null);
+const localNotificationResult = ref<NotificationTestResult | null>(null);
+const serviceWorkerNotificationResult = ref<NotificationTestResult | null>(null);
 const isLoadingProfile = ref(false);
 const isLoadingToday = ref(false);
 const isLoadingHistory = ref(false);
 const isChangingPassword = ref(false);
 const isPushDiagnosticsLoading = ref(false);
-const isRegisteringPushAgain = ref(false);
-const isSendingDebugPush = ref(false);
+const isTestingLocalNotification = ref(false);
+const isTestingServiceWorkerNotification = ref(false);
+const isRegisteringWebPush = ref(false);
+const isSendingWebPushDebug = ref(false);
 let sectionRefreshPromise: Promise<void> | null = null;
 let lastSectionRefreshAt = 0;
 
 const isInitialLoading = computed(() => isLoadingProfile.value && !studentProfile.value);
 const isPushDebugEnabled = computed(() => route.query.debugPush === '1');
 const pushDiagnosticsJson = computed(() => {
-  if (!pushDiagnostics.value && !pushDebugSendResponse.value) {
+  if (
+    !pushDiagnostics.value &&
+    !webPushBackendDebug.value &&
+    !webPushDebugSendResponse.value &&
+    !localNotificationResult.value &&
+    !serviceWorkerNotificationResult.value
+  ) {
     return '';
   }
 
   return JSON.stringify(
     {
       diagnostics: pushDiagnostics.value,
-      lastSendToMe: pushDebugSendResponse.value,
+      backend: webPushBackendDebug.value,
+      lastLocalNotificationResult: localNotificationResult.value,
+      lastServiceWorkerNotificationResult: serviceWorkerNotificationResult.value,
+      lastSendToMe: webPushDebugSendResponse.value,
     },
     null,
     2,
@@ -982,16 +1017,98 @@ async function handleChangePassword(payload: ChangePasswordPayload): Promise<voi
   }
 }
 
-async function handleRunPushDiagnostics(): Promise<void> {
-  isPushDiagnosticsLoading.value = true;
+async function handleTestLocalNotification(): Promise<void> {
+  isTestingLocalNotification.value = true;
   pushDebugFeedback.value = null;
 
   try {
-    pushDiagnostics.value = await getPushDiagnostics({
+    localNotificationResult.value = await testLocalNotification();
+    pushDebugFeedback.value = {
+      type: localNotificationResult.value.ok ? 'success' : 'warning',
+      title: localNotificationResult.value.ok
+        ? 'Prueba local solicitada'
+        : 'Prueba local sin notificación visible',
+      message: localNotificationResult.value.message,
+    };
+  } catch (error) {
+    pushDebugFeedback.value = {
+      type: 'error',
+      title: 'No se pudo probar la notificación local',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isTestingLocalNotification.value = false;
+  }
+}
+
+async function handleTestServiceWorkerNotification(): Promise<void> {
+  isTestingServiceWorkerNotification.value = true;
+  pushDebugFeedback.value = null;
+
+  try {
+    serviceWorkerNotificationResult.value = await testServiceWorkerNotification();
+    pushDebugFeedback.value = {
+      type: serviceWorkerNotificationResult.value.ok ? 'success' : 'warning',
+      title: serviceWorkerNotificationResult.value.ok
+        ? 'Service worker solicitó la notificación'
+        : 'Service worker no mostró notificación',
+      message: serviceWorkerNotificationResult.value.message,
+    };
+  } catch (error) {
+    pushDebugFeedback.value = {
+      type: 'error',
+      title: 'No se pudo probar el service worker',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isTestingServiceWorkerNotification.value = false;
+  }
+}
+
+async function handleRegisterWebPush(): Promise<void> {
+  isRegisteringWebPush.value = true;
+  pushDebugFeedback.value = null;
+
+  try {
+    await registerWebPushSubscription();
+    pushDiagnostics.value = await getWebPushDiagnostics({
       userId: sessionStore.user?.id ?? null,
       userRole: sessionStore.user?.role ?? null,
       route: route.fullPath,
     });
+    webPushBackendDebug.value = pushDiagnostics.value.backend;
+    $q.notify({
+      type: 'positive',
+      icon: 'notifications_active',
+      message: 'Web Push registrado para este dispositivo.',
+    });
+    pushDebugFeedback.value = {
+      type: 'success',
+      title: 'Web Push registrado',
+      message: 'La suscripción Push API quedó guardada en el backend para este usuario.',
+    };
+  } catch (error) {
+    pushDebugFeedback.value = {
+      type: 'error',
+      title: 'No se pudo registrar Web Push',
+      message: getApiErrorMessage(error),
+    };
+  } finally {
+    isRegisteringWebPush.value = false;
+  }
+}
+
+async function handleRunWebPushDiagnostics(): Promise<void> {
+  isPushDiagnosticsLoading.value = true;
+  pushDebugFeedback.value = null;
+
+  try {
+    pushDiagnostics.value = await getWebPushDiagnostics({
+      userId: sessionStore.user?.id ?? null,
+      userRole: sessionStore.user?.role ?? null,
+      route: route.fullPath,
+    });
+    webPushBackendDebug.value = await getWebPushDebugInfo();
     pushDebugFeedback.value = {
       type: 'success',
       title: 'Diagnóstico generado',
@@ -1008,70 +1125,22 @@ async function handleRunPushDiagnostics(): Promise<void> {
   }
 }
 
-async function handleRegisterPushTokenAgain(): Promise<void> {
-  isRegisteringPushAgain.value = true;
+async function handleSendWebPushDebugToMe(): Promise<void> {
+  isSendingWebPushDebug.value = true;
   pushDebugFeedback.value = null;
 
   try {
-    let permission = getNotificationPermission();
-
-    if (permission === 'default') {
-      permission = await requestPushPermission();
-    }
-
-    if (permission === 'denied') {
-      pushDebugFeedback.value = {
-        type: 'warning',
-        title: 'Permiso bloqueado',
-        message:
-          'Las notificaciones están bloqueadas. Debes habilitarlas en la configuración del navegador o celular.',
-      };
-      return;
-    }
-
-    await registerCurrentDeviceToken();
-    pushDiagnostics.value = await getPushDiagnostics({
-      userId: sessionStore.user?.id ?? null,
-      userRole: sessionStore.user?.role ?? null,
-      route: route.fullPath,
-    });
-    $q.notify({
-      type: 'positive',
-      icon: 'notifications_active',
-      message: 'Token FCM registrado para este usuario.',
-    });
+    webPushDebugSendResponse.value = await sendWebPushDebugToMe();
+    const hasSubscriptions = webPushDebugSendResponse.value.activeSubscriptionsCount > 0;
     pushDebugFeedback.value = {
-      type: 'success',
-      title: 'Token registrado',
-      message: 'El dispositivo quedó registrado en el backend para recibir FCM.',
-    };
-  } catch (error) {
-    pushDebugFeedback.value = {
-      type: 'error',
-      title: 'No se pudo registrar el token',
-      message: getApiErrorMessage(error),
-    };
-  } finally {
-    isRegisteringPushAgain.value = false;
-  }
-}
-
-async function handleSendDebugPushToMe(): Promise<void> {
-  isSendingDebugPush.value = true;
-  pushDebugFeedback.value = null;
-
-  try {
-    pushDebugSendResponse.value = await sendDebugNotificationToMe();
-    const hasTokens = pushDebugSendResponse.value.activeTokensCount > 0;
-    pushDebugFeedback.value = {
-      type: hasTokens ? 'success' : 'warning',
-      title: hasTokens ? 'Prueba enviada' : 'Sin tokens activos',
-      message: pushDebugSendResponse.value.message,
+      type: hasSubscriptions ? 'success' : 'warning',
+      title: hasSubscriptions ? 'Prueba enviada' : 'Sin suscripciones activas',
+      message: webPushDebugSendResponse.value.message,
     };
     $q.notify({
-      type: hasTokens ? 'positive' : 'warning',
-      icon: hasTokens ? 'notifications_active' : 'notifications_off',
-      message: pushDebugSendResponse.value.message,
+      type: hasSubscriptions ? 'positive' : 'warning',
+      icon: hasSubscriptions ? 'notifications_active' : 'notifications_off',
+      message: webPushDebugSendResponse.value.message,
       multiLine: true,
     });
   } catch (error) {
@@ -1081,7 +1150,7 @@ async function handleSendDebugPushToMe(): Promise<void> {
       message: getApiErrorMessage(error),
     };
   } finally {
-    isSendingDebugPush.value = false;
+    isSendingWebPushDebug.value = false;
   }
 }
 

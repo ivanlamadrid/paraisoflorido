@@ -21,12 +21,12 @@
 import { computed, onMounted, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import {
-  getNotificationPermission,
-  isPushSupported,
-  registerCurrentDeviceToken,
-  requestPushPermission,
-  unregisterCurrentDeviceToken,
-} from 'src/services/push-notifications';
+  getWebPushPermission,
+  isWebPushSupported,
+  registerWebPushSubscription,
+  requestWebPushPermission,
+  unregisterWebPushSubscription,
+} from 'src/services/web-push-notifications';
 
 defineProps<{
   compact?: boolean;
@@ -34,7 +34,7 @@ defineProps<{
 
 const $q = useQuasar();
 const supported = ref<boolean | null>(null);
-const permission = ref<NotificationPermission | 'unsupported'>(getNotificationPermission());
+const permission = ref<NotificationPermission | 'unsupported'>(getWebPushPermission());
 const isRegistered = ref(false);
 const isBusy = ref(false);
 const lastError = ref<string | null>(null);
@@ -95,7 +95,7 @@ const helperText = computed(() => {
   }
 
   if (supported.value === false) {
-    return 'Este navegador no soporta Web Push o falta configurar Firebase.';
+    return 'Este navegador no soporta Web Push o falta configurar VAPID.';
   }
 
   if (permission.value === 'denied') {
@@ -114,9 +114,9 @@ async function registerDevice(showSuccess = true): Promise<void> {
   lastError.value = null;
 
   try {
-    await registerCurrentDeviceToken();
+    await registerWebPushSubscription();
     isRegistered.value = true;
-    permission.value = getNotificationPermission();
+    permission.value = getWebPushPermission();
 
     if (showSuccess) {
       $q.notify({
@@ -152,7 +152,7 @@ async function handleClick(): Promise<void> {
     isBusy.value = true;
 
     try {
-      await unregisterCurrentDeviceToken();
+      await unregisterWebPushSubscription();
       isRegistered.value = false;
       $q.notify({
         type: 'info',
@@ -176,7 +176,7 @@ async function handleClick(): Promise<void> {
   }
 
   if (permission.value !== 'granted') {
-    permission.value = await requestPushPermission();
+    permission.value = await requestWebPushPermission();
 
     if (permission.value === 'denied') {
       $q.notify({
@@ -198,8 +198,8 @@ async function handleClick(): Promise<void> {
 }
 
 onMounted(async () => {
-  supported.value = await isPushSupported();
-  permission.value = getNotificationPermission();
+  supported.value = isWebPushSupported();
+  permission.value = getWebPushPermission();
 
   if (supported.value && permission.value === 'granted') {
     await registerDevice(false);

@@ -161,11 +161,11 @@ import { useRoute, useRouter } from 'vue-router';
 import SchoolMark from 'components/ui/SchoolMark.vue';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import {
-  registerCurrentDeviceToken,
   setupForegroundMessageListener,
   showSystemNotification,
   type ForegroundPushMessage,
 } from 'src/services/push-notifications';
+import { registerWebPushSubscription } from 'src/services/web-push-notifications';
 import { useInstitutionStore } from 'src/stores/institution-store';
 import { useNotificationsStore } from 'src/stores/notifications-store';
 import { useSessionStore } from 'src/stores/session-store';
@@ -683,8 +683,12 @@ watch(
     void notificationsStore.refresh();
     void startForegroundPush();
 
-    if (typeof window !== 'undefined' && window.Notification?.permission === 'granted') {
-      void registerCurrentDeviceToken().catch(() => undefined);
+    if (
+      sessionStore.user?.role === 'student' &&
+      typeof window !== 'undefined' &&
+      window.Notification?.permission === 'granted'
+    ) {
+      void registerWebPushSubscription().catch(() => undefined);
     }
   },
   { immediate: true },

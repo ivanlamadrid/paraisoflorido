@@ -9,6 +9,14 @@ type NotificationClickEventLike = Event & {
   waitUntil: (promise: Promise<unknown>) => void;
 };
 
+type PushEventLike = Event & {
+  data?: {
+    json: () => unknown;
+    text: () => string;
+  };
+  waitUntil: (promise: Promise<unknown>) => void;
+};
+
 declare const self: typeof globalThis & {
   __WB_MANIFEST: Array<{ revision: string | null; url: string }>;
   clients: {
@@ -23,10 +31,10 @@ declare const self: typeof globalThis & {
     showNotification: (title: string, options: NotificationOptions) => Promise<void>;
   };
   skipWaiting: () => void;
-  addEventListener: (
-    type: 'notificationclick',
-    listener: (event: NotificationClickEventLike) => void,
-  ) => void;
+  addEventListener: {
+    (type: 'notificationclick', listener: (event: NotificationClickEventLike) => void): void;
+    (type: 'push', listener: (event: PushEventLike) => void): void;
+  };
 };
 
 import { initializeApp } from 'firebase/app';
@@ -40,7 +48,7 @@ import {
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 
 type PushNotificationData = Record<string, string>;
-const SW_VERSION = 'push-debug-20260512-001';
+const SW_VERSION = 'web-push-debug-20260512-001';
 
 console.log('[SW] version', SW_VERSION);
 
@@ -108,6 +116,30 @@ if (Object.values(firebaseConfig).every((value) => value.trim().length > 0)) {
   });
 }
 
+self.addEventListener('push', (event) => {
+  console.log('[SW][WEB-PUSH] push event received');
+  const payload = parsePushPayload(event);
+  const title = payload.title ?? 'Notificación';
+  const body = payload.body ?? '';
+  const route = payload.route ?? '/mi-asistencia';
+  const tag = payload.attendanceRecordId ?? payload.testId ?? payload.type ?? 'school-web-push';
+
+  console.log('[SW][WEB-PUSH] showing notification', { title, tag, route });
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/favicon-128x128.png',
+      tag,
+      data: {
+        ...payload,
+        route,
+      },
+    }),
+  );
+});
+
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW][PUSH] notification click');
   event.notification.close();
@@ -134,3 +166,34 @@ self.addEventListener('notificationclick', (event) => {
       }),
   );
 });
+
+function parsePushPayload(event: PushEventLike): PushNotificationData {
+  if (!event.data) {
+    return {};
+  }
+
+  try {
+    const jsonPayload = event.data.json();
+
+    if (typeof jsonPayload === 'object' && jsonPayload !== null) {
+      return Object.entries(jsonPayload).reduce<PushNotificationData>(
+        (accumulator, [key, value]) => {
+          if (typeof value === 'undefined' || value === null) {
+            return accumulator;
+          }
+
+          accumulator[key] = String(value);
+          return accumulator;
+        },
+        {},
+      );
+    }
+  } catch (error) {
+    console.warn('[SW][WEB-PUSH] json parse failed', error);
+  }
+
+  return {
+    title: 'Notificación',
+    body: event.data.text(),
+  };
+}

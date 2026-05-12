@@ -42,6 +42,10 @@ type AttendanceNotificationRecipient = {
   student: Student;
 };
 
+type NotifyAttendanceEntryOptions = {
+  sendFcm?: boolean;
+};
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -241,10 +245,13 @@ export class NotificationsService {
 
   async notifyAttendanceEntryMarked(
     input: AttendanceMarkedInput,
-  ): Promise<void> {
+    options: NotifyAttendanceEntryOptions = {},
+  ): Promise<Notification[]> {
     const recipients = await this.resolveAttendanceNotificationRecipients(
       input.studentId,
     );
+    const notifications: Notification[] = [];
+    const sendFcm = options.sendFcm ?? true;
 
     for (const recipient of recipients) {
       const body = `${this.getStudentDisplayName(recipient.student)} registró entrada el ${this.formatDateInLima(input.markedAt)} a las ${this.formatTimeInLima(input.markedAt)}.`;
@@ -267,20 +274,25 @@ export class NotificationsService {
           body,
         },
       });
+      notifications.push(notification);
 
-      await this.sendPushToUser(
-        recipient.userId,
-        {
-          title: notification.title,
-          body: notification.body,
-          data: {
-            ...(notification.dataJson ?? {}),
-            notificationId: notification.id,
+      if (sendFcm) {
+        await this.sendPushToUser(
+          recipient.userId,
+          {
+            title: notification.title,
+            body: notification.body,
+            data: {
+              ...(notification.dataJson ?? {}),
+              notificationId: notification.id,
+            },
           },
-        },
-        notification,
-      );
+          notification,
+        );
+      }
     }
+
+    return notifications;
   }
 
   private async resolveAttendanceNotificationRecipients(
