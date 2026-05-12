@@ -325,6 +325,7 @@
                   label="Restablecer contraseña"
                   no-caps
                   type="submit"
+                  :disable="resetLoading"
                   :loading="resetLoading"
                 />
               </q-form>

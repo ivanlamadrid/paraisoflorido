@@ -3011,39 +3011,92 @@ async function handleResetSelectedStudent(payload: ResetUserPasswordPayload): Pr
     return;
   }
 
+  studentDetailFeedback.value = null;
+
+  if (!selectedStudent.value.userId) {
+    const message = 'Este estudiante no tiene usuario asociado.';
+    studentDetailFeedback.value = {
+      type: 'warning',
+      title: 'Sin usuario asociado',
+      message,
+    };
+    $q.notify({ type: 'warning', message });
+    return;
+  }
+
   if (!payload.reason || !payload.newPassword) {
-    lookupFeedback.value = {
+    const message = 'Ingresa una contraseña temporal y el motivo del restablecimiento.';
+    studentDetailFeedback.value = {
       type: 'warning',
       title: 'Datos incompletos',
-      message: 'Ingresa una contraseña temporal y el motivo del restablecimiento.',
+      message,
     };
+    $q.notify({ type: 'warning', message });
     return;
   }
 
-  const confirmed = window.confirm(
-    `Se restablecerá la contraseña de ${selectedStudent.value.fullName}. ¿Deseas continuar?`,
-  );
+  const confirmed = await new Promise<boolean>((resolve) => {
+    $q.dialog({
+      title: 'Restablecer contraseña',
+      message: '¿Deseas restablecer la contraseña de este estudiante?',
+      cancel: { label: 'Cancelar', flat: true, color: 'primary' },
+      ok: { label: 'Restablecer', color: 'secondary', unelevated: true },
+      persistent: true,
+    })
+      .onOk(() => resolve(true))
+      .onCancel(() => resolve(false))
+      .onDismiss(() => resolve(false));
+  });
 
-  if (!confirmed) {
+  if (!confirmed || isResettingSelectedStudent.value) {
     return;
   }
+
+  const temporaryPassword = payload.newPassword;
+  const targetStudentName = selectedStudent.value.fullName;
+  const targetUserId = selectedStudent.value.userId;
 
   isResettingSelectedStudent.value = true;
 
   try {
-    const response = await resetUserPassword(selectedStudent.value.userId, payload);
-    lookupFeedback.value = {
+    const response = await resetUserPassword(targetUserId, payload);
+    const successMessage = response.mustChangePassword
+      ? 'Contraseña restablecida correctamente. El estudiante deberá cambiarla al iniciar sesión.'
+      : 'Contraseña restablecida correctamente.';
+
+    studentDetailFeedback.value = {
       type: 'success',
       title: 'Contraseña restablecida',
-      message: `${response.message} El estudiante deberá cambiar su contraseña al ingresar.`,
+      message: successMessage,
     };
+
+    $q.notify({
+      type: 'positive',
+      message: 'Contraseña restablecida correctamente.',
+    });
+
+    $q.dialog({
+      title: 'Contraseña temporal',
+      message: `Contraseña temporal: ${temporaryPassword}`,
+      ok: { label: 'Entendido', color: 'primary', unelevated: true },
+      persistent: true,
+    });
+
     await loadUsers();
   } catch (error) {
-    lookupFeedback.value = {
+    const message = getApiErrorMessage(error) || 'No se pudo restablecer la contraseña.';
+    studentDetailFeedback.value = {
       type: 'error',
       title: 'No se pudo restablecer la contraseña',
-      message: getApiErrorMessage(error),
+      message,
     };
+    $q.notify({
+      type: 'negative',
+      message: 'No se pudo restablecer la contraseña.',
+    });
+    console.warn(
+      `No se pudo restablecer la contraseña del estudiante ${targetStudentName}: ${message}`,
+    );
   } finally {
     isResettingSelectedStudent.value = false;
   }
