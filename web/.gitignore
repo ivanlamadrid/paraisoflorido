@@ -31,3 +31,10 @@ yarn-error.log*
 
 # local .env files
 .env.local*
+.env
+.env.*
+!.env.example
+
+# sensitive Firebase files
+**/*firebase-adminsdk*.json
+**/*service-account*.json

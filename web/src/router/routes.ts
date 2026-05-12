@@ -54,6 +54,14 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'notificaciones',
+        component: () => import('pages/notifications/NotificationsPage.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['director', 'secretary', 'auxiliary', 'tutor', 'student'],
+        },
+      },
+      {
         path: 'auxiliar/asistencia',
         component: () => import('pages/auxiliary/AuxiliaryAttendancePage.vue'),
         meta: {

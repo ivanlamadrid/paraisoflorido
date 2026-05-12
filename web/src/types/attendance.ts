@@ -2,9 +2,7 @@ export type AttendanceMarkType = 'entry' | 'exit';
 export type AttendanceSource = 'qr' | 'manual';
 export type StudentShift = 'morning' | 'afternoon';
 export type AttendanceRecordStatus = 'regular' | 'late' | 'early_departure';
-export type AttendanceDayStatusType =
-  | 'justified_absence'
-  | 'unjustified_absence';
+export type AttendanceDayStatusType = 'justified_absence' | 'unjustified_absence';
 export type AttendanceExportFormat = 'csv' | 'xlsx';
 export type AttendanceAlertType =
   | 'consecutive_absences'
@@ -89,10 +87,7 @@ export interface AttendanceOfflineContextResponse {
   students: AttendanceOfflineContextStudent[];
 }
 
-export type AttendanceOfflineSyncItemStatus =
-  | 'accepted'
-  | 'duplicate'
-  | 'rejected';
+export type AttendanceOfflineSyncItemStatus = 'accepted' | 'duplicate' | 'rejected';
 
 export interface AttendanceOfflineSyncItemPayload {
   clientId: string;
@@ -114,6 +109,7 @@ export interface AttendanceOfflineSyncItemResult {
   clientId: string;
   status: AttendanceOfflineSyncItemStatus;
   message: string;
+  reason?: string | null;
   record: AttendanceRecordResponse | null;
 }
 
@@ -376,8 +372,7 @@ export interface RegisterAttendanceByScanPayload {
   observation?: string;
 }
 
-export interface RegisterAttendanceManualPayload
-  extends AttendanceRegistrationContext {
+export interface RegisterAttendanceManualPayload extends AttendanceRegistrationContext {
   studentId: string;
   status?: AttendanceRecordStatus;
   observation?: string;

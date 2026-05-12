@@ -11,7 +11,7 @@ export default defineConfig((/* ctx */) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['axios', 'icons'],
+    boot: ['axios', 'icons', 'firebase'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#css
     css: ['app.scss'],
@@ -103,7 +103,7 @@ export default defineConfig((/* ctx */) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: [],
+      plugins: ['Notify'],
     },
 
     // animations: 'all', // --- includes all animations
@@ -113,6 +113,7 @@ export default defineConfig((/* ctx */) => {
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#sourcefiles
     sourceFiles: {
       pwaRegisterServiceWorker: 'src-pwa/register-service-worker',
+      pwaServiceWorker: 'src-pwa/custom-service-worker',
       pwaManifestFile: 'src-pwa/manifest.json',
     },
 
@@ -142,13 +143,8 @@ export default defineConfig((/* ctx */) => {
 
     // https://v2.quasar.dev/quasar-cli-vite/developing-pwa/configuring-pwa
     pwa: {
-      workboxMode: 'GenerateSW', // 'GenerateSW' or 'InjectManifest'
+      workboxMode: 'InjectManifest', // 'GenerateSW' or 'InjectManifest'
       injectPwaMetaTags: true,
-      extendGenerateSWOptions(cfg) {
-        cfg.skipWaiting = true;
-        cfg.clientsClaim = true;
-        cfg.cleanupOutdatedCaches = true;
-      },
       // swFilename: 'sw.js',
       // manifestFilename: 'manifest.json',
       // extendManifestJson (json) {},

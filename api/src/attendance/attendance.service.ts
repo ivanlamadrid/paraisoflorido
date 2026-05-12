@@ -3,9 +3,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as XLSX from 'xlsx';
 import { Between, FindOptionsWhere, In, Repository } from 'typeorm';
@@ -18,6 +20,7 @@ import { StudentShift } from '../common/enums/student-shift.enum';
 import { StudentEnrollmentStatus } from '../common/enums/student-enrollment-status.enum';
 import { UserRole } from '../common/enums/user-role.enum';
 import { InstitutionService } from '../institution/institution.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { StudentEnrollment } from '../students/entities/student-enrollment.entity';
 import { Student } from '../students/entities/student.entity';
 import { TutorAssignment } from '../users/entities/tutor-assignment.entity';
@@ -69,6 +72,7 @@ import { UpdateAttendanceRecordDto } from './dto/update-attendance-record.dto';
 import { AttendanceCorrectionLog } from './entities/attendance-correction-log.entity';
 import { AttendanceDayStatus } from './entities/attendance-day-status.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
+import { parseAttendanceExitEnabled } from './attendance.config';
 
 type AttendanceExportRow = Record<string, string | number>;
 
@@ -129,6 +133,7 @@ type CreateAttendanceRecordInput = {
 type OfflineSyncProcessingResult = {
   status: 'accepted' | 'duplicate' | 'rejected';
   message: string;
+  reason?: string | null;
   record: AttendanceRecordResponseDto | null;
 };
 
@@ -154,8 +159,28 @@ const ATTENDANCE_EXPORT_HEADERS = [
   'Observacion ausencia',
 ] as const;
 
+const ATTENDANCE_ENTRY_ONLY_EXPORT_HEADERS = [
+  'Fecha',
+  'Codigo',
+  'Estudiante',
+  'Documento',
+  'Grado',
+  'Seccion',
+  'Turno',
+  'Estado del estudiante',
+  'Estado operativo',
+  'Entrada',
+  'Estado entrada',
+  'Fuente entrada',
+  'Observacion entrada',
+  'Ausencia',
+  'Observacion ausencia',
+] as const;
+
 @Injectable()
 export class AttendanceService {
+  private readonly logger = new Logger(AttendanceService.name);
+
   constructor(
     @InjectRepository(AttendanceRecord)
     private readonly attendanceRecordsRepository: Repository<AttendanceRecord>,
@@ -169,8 +194,16 @@ export class AttendanceService {
     private readonly studentEnrollmentsRepository: Repository<StudentEnrollment>,
     @InjectRepository(TutorAssignment)
     private readonly tutorAssignmentsRepository: Repository<TutorAssignment>,
+    private readonly configService: ConfigService,
     private readonly institutionService: InstitutionService,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
+  private isAttendanceExitEnabled(): boolean {
+    return parseAttendanceExitEnabled(
+      this.configService.get('ATTENDANCE_EXIT_ENABLED'),
+    );
+  }
 
   async registerByScan(
     dto: CreateAttendanceByScanDto,
@@ -201,6 +234,8 @@ export class AttendanceService {
       recordedBy,
       source: AttendanceSource.QR,
     });
+
+    await this.notifyAttendanceMarkedSafely(attendanceRecord);
 
     return this.toAttendanceRecordResponse(attendanceRecord, student);
   }
@@ -234,6 +269,8 @@ export class AttendanceService {
       recordedBy,
       source: AttendanceSource.MANUAL,
     });
+
+    await this.notifyAttendanceMarkedSafely(attendanceRecord);
 
     return this.toAttendanceRecordResponse(attendanceRecord, student);
   }
@@ -338,6 +375,7 @@ export class AttendanceService {
         clientId: item.clientId,
         status: result.status,
         message: result.message,
+        reason: result.reason ?? null,
         record: result.record,
       });
     }
@@ -560,7 +598,12 @@ export class AttendanceService {
           );
         }
 
-        if (!currentValue.absence && currentValue.entry && !currentValue.exit) {
+        if (
+          this.isAttendanceExitEnabled() &&
+          !currentValue.absence &&
+          currentValue.entry &&
+          !currentValue.exit
+        ) {
           items.push(
             this.buildAttendanceRegularizationItem(
               AttendanceRegularizationItemTypeDto.PENDING_EXIT,
@@ -607,8 +650,14 @@ export class AttendanceService {
       }
     }
 
+    const visibleCorrections = this.isAttendanceExitEnabled()
+      ? corrections
+      : corrections.filter(
+          (correction) => correction.markType !== AttendanceMarkType.EXIT,
+        );
+
     items.push(
-      ...corrections.map((correction) => {
+      ...visibleCorrections.map((correction) => {
         const enrollment = enrollments.find(
           (currentEnrollment) =>
             currentEnrollment.studentId === correction.studentId,
@@ -988,6 +1037,9 @@ export class AttendanceService {
     const attendanceRecordWhere: FindOptionsWhere<AttendanceRecord> = {
       studentId: student.id,
     };
+    if (!this.isAttendanceExitEnabled()) {
+      attendanceRecordWhere.markType = AttendanceMarkType.ENTRY;
+    }
     const attendanceDayStatusWhere: FindOptionsWhere<AttendanceDayStatus> = {
       studentId: student.id,
       isActive: true,
@@ -1200,6 +1252,15 @@ export class AttendanceService {
           throw new NotFoundException('Registro de asistencia no encontrado.');
         }
 
+        if (
+          attendanceRecord.markType === AttendanceMarkType.EXIT &&
+          !this.isAttendanceExitEnabled()
+        ) {
+          throw new BadRequestException(
+            'La corrección de salida está desactivada para esta institución.',
+          );
+        }
+
         this.ensureCorrectionAccess(attendanceRecord, dto, correctedBy);
 
         const student = await studentsRepository.findOne({
@@ -1289,6 +1350,15 @@ export class AttendanceService {
   private async createAttendanceRecord(
     input: CreateAttendanceRecordInput,
   ): Promise<AttendanceRecord> {
+    if (
+      input.markType === AttendanceMarkType.EXIT &&
+      !this.isAttendanceExitEnabled()
+    ) {
+      throw new BadRequestException(
+        'La marcación de salida está desactivada para esta institución.',
+      );
+    }
+
     const status = this.resolveAttendanceRecordStatus(
       input.markType,
       input.status,
@@ -1355,6 +1425,31 @@ export class AttendanceService {
     });
 
     return this.attendanceRecordsRepository.save(attendanceRecord);
+  }
+
+  private async notifyAttendanceMarkedSafely(
+    attendanceRecord: AttendanceRecord,
+  ): Promise<void> {
+    if (attendanceRecord.markType !== AttendanceMarkType.ENTRY) {
+      return;
+    }
+
+    try {
+      await this.notificationsService.notifyAttendanceEntryMarked({
+        attendanceRecordId: attendanceRecord.id,
+        studentId: attendanceRecord.studentId,
+        markedAt: attendanceRecord.markedAt,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message.replace(/\s+/g, ' ').slice(0, 256)
+          : 'Error desconocido al notificar asistencia.';
+
+      this.logger.warn(
+        `No se pudo enviar la notificacion de asistencia ${attendanceRecord.id}: ${message}`,
+      );
+    }
   }
 
   private async buildDailyAttendanceItems(
@@ -1434,11 +1529,12 @@ export class AttendanceService {
           (attendanceRecord) =>
             attendanceRecord.markType === AttendanceMarkType.ENTRY,
         ) ?? null;
-      const exit =
-        studentRecords.find(
-          (attendanceRecord) =>
-            attendanceRecord.markType === AttendanceMarkType.EXIT,
-        ) ?? null;
+      const exit = this.isAttendanceExitEnabled()
+        ? (studentRecords.find(
+            (attendanceRecord) =>
+              attendanceRecord.markType === AttendanceMarkType.EXIT,
+          ) ?? null)
+        : null;
 
       return {
         studentId: student.id,
@@ -1813,8 +1909,9 @@ export class AttendanceService {
 
     const alerts: AttendanceAlertItemDto[] = [];
     const consecutiveAbsenceAlert = this.buildConsecutiveAbsenceAlert(entries);
-    const repeatedIncompleteAlert =
-      this.buildRepeatedIncompleteRecordsAlert(entries);
+    const repeatedIncompleteAlert = this.isAttendanceExitEnabled()
+      ? this.buildRepeatedIncompleteRecordsAlert(entries)
+      : null;
     const repeatedLateEntriesAlert =
       this.buildRepeatedLateEntriesAlert(entries);
 
@@ -2048,6 +2145,19 @@ export class AttendanceService {
     item: SyncOfflineAttendanceItemDto,
     recordedBy: AuthenticatedRequestUser,
   ): Promise<OfflineSyncProcessingResult> {
+    if (
+      item.markType === AttendanceMarkType.EXIT &&
+      !this.isAttendanceExitEnabled()
+    ) {
+      return {
+        status: 'rejected',
+        message:
+          'La marcación de salida está desactivada para esta institución.',
+        reason: 'exit_disabled',
+        record: null,
+      };
+    }
+
     try {
       const student = await this.resolveOfflineSyncStudent(item);
       this.ensureStudentIsActive(student);
@@ -2077,6 +2187,8 @@ export class AttendanceService {
         source: item.source,
         recordedAt,
       });
+
+      await this.notifyAttendanceMarkedSafely(attendanceRecord);
 
       return {
         status: 'accepted',
@@ -2422,7 +2534,10 @@ export class AttendanceService {
         continue;
       }
 
-      if (currentValue.entry || currentValue.exit) {
+      if (
+        currentValue.entry ||
+        (this.isAttendanceExitEnabled() && currentValue.exit)
+      ) {
         counters.attendedDays += 1;
       }
 
@@ -2434,7 +2549,7 @@ export class AttendanceService {
         }
       }
 
-      if (currentValue.exit) {
+      if (this.isAttendanceExitEnabled() && currentValue.exit) {
         counters.exitsRegistered += 1;
 
         if (
@@ -2444,11 +2559,18 @@ export class AttendanceService {
         }
       }
 
-      if (currentValue.entry && currentValue.exit) {
+      if (
+        this.isAttendanceExitEnabled()
+          ? currentValue.entry && currentValue.exit
+          : currentValue.entry
+      ) {
         counters.completeDays += 1;
       }
 
-      if (Boolean(currentValue.entry) !== Boolean(currentValue.exit)) {
+      if (
+        this.isAttendanceExitEnabled() &&
+        Boolean(currentValue.entry) !== Boolean(currentValue.exit)
+      ) {
         counters.incompleteRecords += 1;
       }
     }
@@ -2598,7 +2720,7 @@ export class AttendanceService {
     const student = enrollment.student;
     const studentIsActive = student.isActive && enrollment.isActive;
 
-    return {
+    const row: AttendanceExportRow = {
       Fecha: attendanceDate,
       Codigo: student.code,
       Estudiante: `${student.lastName} ${student.firstName}`.trim(),
@@ -2620,17 +2742,24 @@ export class AttendanceService {
         ? this.getAttendanceSourceLabel(entry.source)
         : '',
       'Observacion entrada': entry?.observation ?? '',
-      Salida: exit ? this.formatMarkedTime(exit.markedAt) : '',
-      'Estado salida': exit
-        ? this.getAttendanceRecordStatusLabel(exit.status)
-        : '',
-      'Fuente salida': exit ? this.getAttendanceSourceLabel(exit.source) : '',
-      'Observacion salida': exit?.observation ?? '',
       Ausencia: absence
         ? this.getAttendanceDayStatusLabel(absence.statusType)
         : '',
       'Observacion ausencia': absence?.observation ?? '',
     };
+
+    if (this.isAttendanceExitEnabled()) {
+      row.Salida = exit ? this.formatMarkedTime(exit.markedAt) : '';
+      row['Estado salida'] = exit
+        ? this.getAttendanceRecordStatusLabel(exit.status)
+        : '';
+      row['Fuente salida'] = exit
+        ? this.getAttendanceSourceLabel(exit.source)
+        : '';
+      row['Observacion salida'] = exit?.observation ?? '';
+    }
+
+    return row;
   }
 
   private buildAttendanceExportFile(
@@ -2676,15 +2805,16 @@ export class AttendanceService {
   private buildAttendanceExportWorksheet(
     rows: AttendanceExportRow[],
   ): XLSX.WorkSheet {
+    const headers = this.isAttendanceExitEnabled()
+      ? ATTENDANCE_EXPORT_HEADERS
+      : ATTENDANCE_ENTRY_ONLY_EXPORT_HEADERS;
     const data = [
-      [...ATTENDANCE_EXPORT_HEADERS],
-      ...rows.map((row) =>
-        ATTENDANCE_EXPORT_HEADERS.map((header) => row[header] ?? ''),
-      ),
+      [...headers],
+      ...rows.map((row) => headers.map((header) => row[header] ?? '')),
     ];
     const worksheet = XLSX.utils.aoa_to_sheet(data);
 
-    worksheet['!cols'] = ATTENDANCE_EXPORT_HEADERS.map((header) => ({
+    worksheet['!cols'] = headers.map((header) => ({
       wch: Math.max(
         header.length + 2,
         ...rows.map((row) => String(row[header] ?? '').length),
@@ -3043,6 +3173,10 @@ export class AttendanceService {
       return this.getAttendanceDayStatusLabel(absence.statusType);
     }
 
+    if (!this.isAttendanceExitEnabled()) {
+      return entry ? 'Entrada registrada' : 'Sin entrada registrada';
+    }
+
     if (entry && exit) {
       return 'Completo';
     }
@@ -3077,20 +3211,24 @@ export class AttendanceService {
   private buildDailyAttendanceSummary(
     items: DailyAttendanceItemDto[],
   ): DailyAttendanceSummaryDto {
+    const exitEnabled = this.isAttendanceExitEnabled();
     const activeItems = items.filter((item) => item.isActive);
     const inactiveStudents = items.length - activeItems.length;
     const entriesRegistered = activeItems.filter((item) =>
       Boolean(item.entry),
     ).length;
-    const exitsRegistered = activeItems.filter((item) =>
-      Boolean(item.exit),
-    ).length;
+    const exitsRegistered = exitEnabled
+      ? activeItems.filter((item) => Boolean(item.exit)).length
+      : 0;
     const lateEntries = activeItems.filter(
       (item) => item.entry?.status === AttendanceRecordStatus.LATE,
     ).length;
-    const earlyDepartures = activeItems.filter(
-      (item) => item.exit?.status === AttendanceRecordStatus.EARLY_DEPARTURE,
-    ).length;
+    const earlyDepartures = exitEnabled
+      ? activeItems.filter(
+          (item) =>
+            item.exit?.status === AttendanceRecordStatus.EARLY_DEPARTURE,
+        ).length
+      : 0;
     const justifiedAbsences = activeItems.filter(
       (item) =>
         item.absence?.statusType === AttendanceDayStatusType.JUSTIFIED_ABSENCE,
@@ -3104,12 +3242,14 @@ export class AttendanceService {
     const pendingEntries = activeItems.filter(
       (item) => !item.absence && !item.entry,
     ).length;
-    const pendingExits = activeItems.filter(
-      (item) => !item.absence && !item.exit,
-    ).length;
-    const incompleteRecords = activeItems.filter(
-      (item) => !item.absence && Boolean(item.entry) !== Boolean(item.exit),
-    ).length;
+    const pendingExits = exitEnabled
+      ? activeItems.filter((item) => !item.absence && !item.exit).length
+      : 0;
+    const incompleteRecords = exitEnabled
+      ? activeItems.filter(
+          (item) => !item.absence && Boolean(item.entry) !== Boolean(item.exit),
+        ).length
+      : 0;
 
     return {
       totalStudents: items.length,

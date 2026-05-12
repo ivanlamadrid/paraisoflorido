@@ -111,7 +111,9 @@
             </div>
             <div class="student-institutional-profile__field">
               <span class="student-institutional-profile__field-label">Hoy</span>
-              <span class="student-institutional-profile__field-value">{{ formattedTodayDate }}</span>
+              <span class="student-institutional-profile__field-value">{{
+                formattedTodayDate
+              }}</span>
             </div>
           </div>
         </q-card-section>
@@ -129,9 +131,7 @@
             class="student-institutional-profile__empty-state"
           >
             <q-icon name="groups" size="28px" color="grey-6" />
-            <div class="text-subtitle2 text-weight-bold text-grey-8">
-              Sin contactos registrados
-            </div>
+            <div class="text-subtitle2 text-weight-bold text-grey-8">Sin contactos registrados</div>
             <p class="text-body2 text-grey-7 q-mb-none">
               Aún no hay referencias familiares asociadas a tu ficha institucional.
             </p>
@@ -179,7 +179,9 @@
 
               <div class="student-institutional-profile__contact-body">
                 <div class="student-institutional-profile__contact-row">
-                  <span class="student-institutional-profile__contact-label">Teléfono principal</span>
+                  <span class="student-institutional-profile__contact-label"
+                    >Teléfono principal</span
+                  >
                   <span class="student-institutional-profile__contact-value">
                     {{ contact.phonePrimary }}
                   </span>
@@ -236,9 +238,7 @@
 
         <div class="student-institutional-profile__support-grid">
           <section class="student-institutional-profile__support-section">
-            <div class="student-institutional-profile__support-title">
-              Resumen de asistencia
-            </div>
+            <div class="student-institutional-profile__support-title">Resumen de asistencia</div>
 
             <div class="student-institutional-profile__attendance-grid">
               <div class="student-institutional-profile__attendance-item">
@@ -254,9 +254,9 @@
                 </span>
               </div>
               <div class="student-institutional-profile__attendance-item">
-                <span class="student-institutional-profile__field-label">Entradas / salidas</span>
+                <span class="student-institutional-profile__field-label">Entradas</span>
                 <span class="student-institutional-profile__field-value">
-                  {{ student.recentSummary.entriesRegistered }} / {{ student.recentSummary.exitsRegistered }}
+                  {{ student.recentSummary.entriesRegistered }}
                 </span>
               </div>
               <div class="student-institutional-profile__attendance-item">
@@ -277,31 +277,35 @@
               <div class="student-institutional-profile__today-item">
                 <span class="student-institutional-profile__field-label">Entrada</span>
                 <span class="student-institutional-profile__contact-value">
-                  {{ student.todayStatus.entry ? formatMarkedTime(student.todayStatus.entry.markedAt) : 'Pendiente' }}
+                  {{
+                    student.todayStatus.entry
+                      ? formatMarkedTime(student.todayStatus.entry.markedAt)
+                      : 'Pendiente'
+                  }}
                 </span>
               </div>
-              <div class="student-institutional-profile__today-item">
+              <div v-if="isAttendanceExitEnabled" class="student-institutional-profile__today-item">
                 <span class="student-institutional-profile__field-label">Salida</span>
                 <span class="student-institutional-profile__contact-value">
-                  {{ student.todayStatus.exit ? formatMarkedTime(student.todayStatus.exit.markedAt) : 'Pendiente' }}
+                  {{
+                    student.todayStatus.exit
+                      ? formatMarkedTime(student.todayStatus.exit.markedAt)
+                      : 'Pendiente'
+                  }}
                 </span>
               </div>
             </div>
           </section>
 
           <section class="student-institutional-profile__support-section">
-            <div class="student-institutional-profile__support-title">
-              Alertas relacionadas
-            </div>
+            <div class="student-institutional-profile__support-title">Alertas relacionadas</div>
 
             <div
               v-if="student.alerts.length === 0"
               class="student-institutional-profile__empty-state student-institutional-profile__empty-state--compact"
             >
               <q-icon name="verified" size="24px" color="green-6" />
-              <div class="text-subtitle2 text-weight-bold text-grey-8">
-                Sin alertas activas
-              </div>
+              <div class="text-subtitle2 text-weight-bold text-grey-8">Sin alertas activas</div>
               <p class="text-body2 text-grey-7 q-mb-none">
                 No hay patrones de asistencia que requieran atención por ahora.
               </p>
@@ -352,22 +356,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import type { StudentContact, StudentDetail } from 'src/types/students';
-import {
-  getAttendanceAlertLabel,
-  getAttendanceAlertTone,
-} from 'src/utils/attendance-alerts';
+import { getAttendanceAlertLabel, getAttendanceAlertTone } from 'src/utils/attendance-alerts';
 
 const props = defineProps<{
   student: StudentDetail;
 }>();
 
 const classroomLabel = computed(() => {
-  if (
-    props.student.grade === null ||
-    !props.student.section ||
-    !props.student.shift
-  ) {
+  if (props.student.grade === null || !props.student.section || !props.student.shift) {
     return 'Sin asignación vigente';
   }
 

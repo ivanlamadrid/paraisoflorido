@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { getAnnouncementFeed } from 'src/services/api/announcements-api';
 import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import type { AnnouncementFeedItem } from 'src/types/announcements';
@@ -102,10 +103,7 @@ function getAttendanceMarkKey(item: AttendanceHistoryItem): string | null {
   return `${item.attendanceDate}:${item.markType}:${item.markedAt}`;
 }
 
-function sortAnnouncementItems(
-  left: AnnouncementFeedItem,
-  right: AnnouncementFeedItem,
-): number {
+function sortAnnouncementItems(left: AnnouncementFeedItem, right: AnnouncementFeedItem): number {
   const leftRank = Number(left.priority === 'urgent' || left.isPinned);
   const rightRank = Number(right.priority === 'urgent' || right.isPinned);
 
@@ -149,9 +147,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
       )
       .slice(0, 3);
   });
-  const nextAnnouncementToast = computed(
-    () => announcementToastQueue.value[0] ?? null,
-  );
+  const nextAnnouncementToast = computed(() => announcementToastQueue.value[0] ?? null);
   const nextAttendanceToast = computed(() => attendanceToastQueue.value[0] ?? null);
 
   function clearQueues(): void {
@@ -209,9 +205,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
 
     const sortedItems = [...items].sort(sortAnnouncementItems);
     const primaryItem = sortedItems[0];
-    const isEmphasis = sortedItems.some(
-      (item) => item.priority === 'urgent' || item.isPinned,
-    );
+    const isEmphasis = sortedItems.some((item) => item.priority === 'urgent' || item.isPinned);
 
     if (!primaryItem) {
       return;
@@ -253,15 +247,13 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
       key: getAttendanceMarkKey(item) ?? `${item.attendanceDate}:${item.markType}`,
       markType: item.markType,
       message:
-        item.markType === 'entry'
+        item.markType === 'entry' || !isAttendanceExitEnabled
           ? 'Tu entrada fue registrada.'
           : 'Tu salida fue registrada.',
     });
   }
 
-  async function refreshAnnouncements(
-    options: RefreshOptions = {},
-  ): Promise<void> {
+  async function refreshAnnouncements(options: RefreshOptions = {}): Promise<void> {
     if (!activeStudentUserId.value) {
       return;
     }
@@ -323,9 +315,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
     }
   }
 
-  async function refreshAttendance(
-    options: RefreshOptions = {},
-  ): Promise<void> {
+  async function refreshAttendance(options: RefreshOptions = {}): Promise<void> {
     if (!activeStudentUserId.value) {
       return;
     }
@@ -345,7 +335,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
         .filter(
           (item) =>
             item.itemType === 'mark' &&
-            (item.markType === 'entry' || item.markType === 'exit') &&
+            (item.markType === 'entry' || (isAttendanceExitEnabled && item.markType === 'exit')) &&
             Boolean(item.markedAt),
         )
         .sort((left, right) => {
@@ -405,10 +395,7 @@ export const useStudentNotificationsStore = defineStore('student-notifications',
   }
 
   async function refreshAll(options: RefreshOptions = {}): Promise<void> {
-    await Promise.all([
-      refreshAnnouncements(options),
-      refreshAttendance(options),
-    ]);
+    await Promise.all([refreshAnnouncements(options), refreshAttendance(options)]);
   }
 
   function consumeAnnouncementToast(): StudentAnnouncementToast | null {

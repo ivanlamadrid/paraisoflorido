@@ -57,6 +57,7 @@ export class AttendanceOfflineSyncItemResultDto {
   clientId: string;
   status: AttendanceOfflineSyncItemStatusDto;
   message: string;
+  reason?: string | null;
   record: AttendanceRecordResponseDto | null;
 }
 

@@ -59,3 +59,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 .vscode/
 web/.vscode/
+api/.secrets/firebase-service-account.json

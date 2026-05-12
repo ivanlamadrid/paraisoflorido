@@ -13,6 +13,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { buildTypeOrmOptions } from './database/typeorm.config';
 import { HealthModule } from './health/health.module';
 import { InstitutionModule } from './institution/institution.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { StudentsModule } from './students/students.module';
 import { UsersModule } from './users/users.module';
 
@@ -49,6 +50,12 @@ import { UsersModule } from './users/users.module';
         JWT_EXPIRES_IN: Joi.string().default('1d'),
         INITIAL_STUDENT_PASSWORD: Joi.string().min(8).required(),
         SCHOOL_NAME: Joi.string().default('Colegio Paraiso Florido 3082'),
+        ATTENDANCE_EXIT_ENABLED: Joi.boolean()
+          .truthy('true')
+          .falsy('false')
+          .default(false),
+        FIREBASE_SERVICE_ACCOUNT_PATH: Joi.string().optional(),
+        FIREBASE_PROJECT_ID: Joi.string().optional(),
       }),
     }),
 
@@ -68,6 +75,7 @@ import { UsersModule } from './users/users.module';
     InstitutionModule,
     AttendanceModule,
     AnnouncementsModule,
+    NotificationsModule,
     UsersModule,
     StudentsModule,
     AuthModule,

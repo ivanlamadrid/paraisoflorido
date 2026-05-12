@@ -9,8 +9,15 @@ coverage/
 
 # envs
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
+
+# secrets
+api/.secrets/
+**/*firebase-adminsdk*.json
+**/*service-account*.json
 
 # logs
 npm-debug.log*

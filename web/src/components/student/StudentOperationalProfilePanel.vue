@@ -47,13 +47,21 @@
         <div class="student-operational-profile__summary-item">
           <span class="student-operational-profile__label">Entrada</span>
           <span class="student-operational-profile__value">
-            {{ student.todayStatus.entry ? formatMarkedTime(student.todayStatus.entry.markedAt) : 'Pendiente' }}
+            {{
+              student.todayStatus.entry
+                ? formatMarkedTime(student.todayStatus.entry.markedAt)
+                : 'Pendiente'
+            }}
           </span>
         </div>
-        <div class="student-operational-profile__summary-item">
+        <div v-if="isAttendanceExitEnabled" class="student-operational-profile__summary-item">
           <span class="student-operational-profile__label">Salida</span>
           <span class="student-operational-profile__value">
-            {{ student.todayStatus.exit ? formatMarkedTime(student.todayStatus.exit.markedAt) : 'Pendiente' }}
+            {{
+              student.todayStatus.exit
+                ? formatMarkedTime(student.todayStatus.exit.markedAt)
+                : 'Pendiente'
+            }}
           </span>
         </div>
       </div>
@@ -115,18 +123,11 @@
     <div class="student-operational-profile__lower-grid">
       <section class="student-operational-profile__section">
         <div class="ui-eyebrow">Contacto básico</div>
-        <div class="text-subtitle2 text-weight-bold q-mt-sm">
-          Referencia familiar disponible
-        </div>
+        <div class="text-subtitle2 text-weight-bold q-mt-sm">Referencia familiar disponible</div>
 
-        <div
-          v-if="!primaryContact"
-          class="student-operational-profile__empty-state q-mt-md"
-        >
+        <div v-if="!primaryContact" class="student-operational-profile__empty-state q-mt-md">
           <q-icon name="groups" size="24px" color="grey-6" />
-          <div class="text-subtitle2 text-weight-bold text-grey-8">
-            Sin contacto disponible
-          </div>
+          <div class="text-subtitle2 text-weight-bold text-grey-8">Sin contacto disponible</div>
           <p class="text-body2 text-grey-7 q-mb-none">
             No hay contactos familiares registrados para este estudiante.
           </p>
@@ -135,7 +136,9 @@
         <div v-else class="student-operational-profile__contact-card q-mt-md">
           <div class="student-operational-profile__contact-top">
             <div>
-              <div class="student-operational-profile__contact-name">{{ primaryContact.fullName }}</div>
+              <div class="student-operational-profile__contact-name">
+                {{ primaryContact.fullName }}
+              </div>
               <div class="student-operational-profile__contact-meta">
                 {{ primaryContact.relationship }}
               </div>
@@ -168,14 +171,18 @@
           <div class="student-operational-profile__contact-list">
             <div class="student-operational-profile__contact-row">
               <span class="student-operational-profile__label">Teléfono principal</span>
-              <span class="student-operational-profile__value">{{ primaryContact.phonePrimary }}</span>
+              <span class="student-operational-profile__value">{{
+                primaryContact.phonePrimary
+              }}</span>
             </div>
             <div
               v-if="primaryContact.phoneSecondary"
               class="student-operational-profile__contact-row"
             >
               <span class="student-operational-profile__label">Teléfono alterno</span>
-              <span class="student-operational-profile__value">{{ primaryContact.phoneSecondary }}</span>
+              <span class="student-operational-profile__value">{{
+                primaryContact.phoneSecondary
+              }}</span>
             </div>
             <div v-if="primaryContact.email" class="student-operational-profile__contact-row">
               <span class="student-operational-profile__label">Correo</span>
@@ -186,7 +193,9 @@
               class="student-operational-profile__contact-row"
             >
               <span class="student-operational-profile__label">Autorizaciones</span>
-              <span class="student-operational-profile__value">{{ getAuthorizationLabel(primaryContact) }}</span>
+              <span class="student-operational-profile__value">{{
+                getAuthorizationLabel(primaryContact)
+              }}</span>
             </div>
             <div v-if="primaryContact.notes" class="student-operational-profile__contact-row">
               <span class="student-operational-profile__label">Observación</span>
@@ -233,9 +242,7 @@
           class="student-operational-profile__empty-state q-mt-md"
         >
           <q-icon name="history" size="24px" color="grey-6" />
-          <div class="text-subtitle2 text-weight-bold text-grey-8">
-            Sin actividad reciente
-          </div>
+          <div class="text-subtitle2 text-weight-bold text-grey-8">Sin actividad reciente</div>
           <p class="text-body2 text-grey-7 q-mb-none">
             Todavía no hay registros recientes para mostrar en esta ficha operativa.
           </p>
@@ -255,7 +262,9 @@
                 v-if="item.itemType === 'absence'"
                 dense
                 :color="getAttendanceDayStatusTone(item.status as AttendanceDayStatusType).color"
-                :text-color="getAttendanceDayStatusTone(item.status as AttendanceDayStatusType).textColor"
+                :text-color="
+                  getAttendanceDayStatusTone(item.status as AttendanceDayStatusType).textColor
+                "
               >
                 {{ getAttendanceDayStatusLabel(item.status as AttendanceDayStatusType) }}
               </q-chip>
@@ -263,7 +272,9 @@
                 v-else
                 dense
                 :color="getAttendanceRecordStatusTone(item.status as AttendanceRecordStatus).color"
-                :text-color="getAttendanceRecordStatusTone(item.status as AttendanceRecordStatus).textColor"
+                :text-color="
+                  getAttendanceRecordStatusTone(item.status as AttendanceRecordStatus).textColor
+                "
               >
                 {{ getAttendanceRecordStatusLabel(item.status as AttendanceRecordStatus) }}
               </q-chip>
@@ -287,16 +298,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import type {
   AttendanceDayStatusType,
   AttendanceHistoryItem,
   AttendanceRecordStatus,
 } from 'src/types/attendance';
 import type { StudentContact, StudentDetail } from 'src/types/students';
-import {
-  getAttendanceAlertLabel,
-  getAttendanceAlertTone,
-} from 'src/utils/attendance-alerts';
+import { getAttendanceAlertLabel, getAttendanceAlertTone } from 'src/utils/attendance-alerts';
 import {
   getAttendanceDayStatusLabel,
   getAttendanceDayStatusTone,
@@ -309,10 +318,7 @@ const props = defineProps<{
 }>();
 
 const classroomLabel = computed(() => {
-  if (
-    props.student.grade === null ||
-    !props.student.section
-  ) {
+  if (props.student.grade === null || !props.student.section) {
     return 'Sin asignación vigente';
   }
 
@@ -357,10 +363,12 @@ const institutionalStatusLabel = computed(() => {
 
 const primaryContact = computed<StudentContact | null>(() => {
   const contacts = props.student.contacts ?? [];
-  return contacts.find((contact) => contact.isPrimary)
-    ?? contacts.find((contact) => contact.isEmergencyContact)
-    ?? contacts[0]
-    ?? null;
+  return (
+    contacts.find((contact) => contact.isPrimary) ??
+    contacts.find((contact) => contact.isEmergencyContact) ??
+    contacts[0] ??
+    null
+  );
 });
 
 const situationLabel = computed(() => {
@@ -372,7 +380,11 @@ const situationLabel = computed(() => {
 });
 
 const recentFollowUps = computed(() => props.student.followUps.slice(0, 3));
-const recentItems = computed(() => props.student.recentItems.slice(0, 5));
+const recentItems = computed(() =>
+  props.student.recentItems
+    .filter((item) => isAttendanceExitEnabled || item.markType !== 'exit')
+    .slice(0, 5),
+);
 
 function formatAlertDate(date: string): string {
   return new Intl.DateTimeFormat('es-PE', {
@@ -403,7 +415,9 @@ function getRecentItemTitle(item: AttendanceHistoryItem): string {
     return getAttendanceDayStatusLabel(item.status as AttendanceDayStatusType);
   }
 
-  return item.markType === 'entry' ? 'Entrada registrada' : 'Salida registrada';
+  return item.markType === 'entry' || !isAttendanceExitEnabled
+    ? 'Entrada registrada'
+    : 'Salida registrada';
 }
 
 function getMovementLabel(value: string): string {

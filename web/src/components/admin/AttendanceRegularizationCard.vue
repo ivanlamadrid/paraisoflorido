@@ -8,7 +8,8 @@
             Cierre operativo y revisión administrativa
           </div>
           <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-            Reutiliza los registros, alertas, justificaciones y correcciones ya existentes para detectar pendientes de entrada, salida y revisión.
+            Reutiliza los registros, alertas, justificaciones y correcciones ya existentes para
+            detectar pendientes de entrada y revisión.
           </p>
         </div>
         <div class="col-12 col-lg-auto">
@@ -135,13 +136,7 @@
           </div>
           <div class="col-12 col-lg-4">
             <div class="regularization-actions">
-              <q-btn
-                flat
-                color="primary"
-                label="Limpiar"
-                no-caps
-                @click="resetFilters"
-              />
+              <q-btn flat color="primary" label="Limpiar" no-caps @click="resetFilters" />
               <q-btn
                 color="primary"
                 label="Actualizar bandeja"
@@ -155,11 +150,7 @@
       </q-form>
 
       <div class="regularization-stats-grid q-mt-lg">
-        <article
-          v-for="stat in summaryCards"
-          :key="stat.label"
-          class="regularization-stat"
-        >
+        <article v-for="stat in summaryCards" :key="stat.label" class="regularization-stat">
           <div class="regularization-stat__value">{{ stat.value }}</div>
           <div class="regularization-stat__label">{{ stat.label }}</div>
         </article>
@@ -215,10 +206,7 @@
                 <q-item-label class="q-mt-sm text-body2">
                   {{ item.statusLabel }}
                 </q-item-label>
-                <q-item-label
-                  v-if="item.supportLabel"
-                  class="q-mt-xs text-caption text-grey-7"
-                >
+                <q-item-label v-if="item.supportLabel" class="q-mt-xs text-caption text-grey-7">
                   {{ item.supportLabel }}
                 </q-item-label>
               </q-item-section>
@@ -311,6 +299,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { getAttendanceRegularization } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import type {
@@ -385,29 +374,44 @@ const shiftOptions = computed(() =>
 );
 
 const sectionOptions = computed(() =>
-  (filters.grade ? props.sectionsByGrade[String(filters.grade)] ?? [] : []).map((section) => ({
+  (filters.grade ? (props.sectionsByGrade[String(filters.grade)] ?? []) : []).map((section) => ({
     label: section,
     value: section,
   })),
 );
 
-const itemTypeOptions = [
-  { label: 'Entrada pendiente', value: 'pending_entry' },
-  { label: 'Salida pendiente', value: 'pending_exit' },
-  { label: 'Tardanza por revisar', value: 'late_entry_review' },
-  { label: 'Justificación pendiente', value: 'pending_justification' },
-  { label: 'Corrección reciente', value: 'recent_correction' },
-  { label: 'Recurrencia de alerta', value: 'high_alert_recurrence' },
-] as const;
+const itemTypeOptions = computed(
+  () =>
+    [
+      { label: 'Entrada pendiente', value: 'pending_entry' },
+      ...(isAttendanceExitEnabled
+        ? [{ label: 'Salida pendiente', value: 'pending_exit' as const }]
+        : []),
+      { label: 'Tardanza por revisar', value: 'late_entry_review' },
+      { label: 'Justificación pendiente', value: 'pending_justification' },
+      { label: 'Corrección reciente', value: 'recent_correction' },
+      { label: 'Recurrencia de alerta', value: 'high_alert_recurrence' },
+    ] as const,
+);
 
-const summaryCards = computed(() => [
-  { label: 'Entradas pendientes', value: summary.value.pendingEntries },
-  { label: 'Salidas pendientes', value: summary.value.pendingExits },
-  { label: 'Tardanzas por revisar', value: summary.value.lateEntriesForReview },
-  { label: 'Justificaciones pendientes', value: summary.value.pendingJustifications },
-  { label: 'Correcciones recientes', value: summary.value.recentCorrections },
-  { label: 'Recurrencias de alerta', value: summary.value.studentsWithRecurringAlerts },
-]);
+const summaryCards = computed(() => {
+  const cards: Array<{ label: string; value: number }> = [
+    { label: 'Entradas pendientes', value: summary.value.pendingEntries },
+    { label: 'Tardanzas por revisar', value: summary.value.lateEntriesForReview },
+    { label: 'Justificaciones pendientes', value: summary.value.pendingJustifications },
+    { label: 'Correcciones recientes', value: summary.value.recentCorrections },
+    { label: 'Recurrencias de alerta', value: summary.value.studentsWithRecurringAlerts },
+  ];
+
+  if (isAttendanceExitEnabled) {
+    cards.splice(1, 0, {
+      label: 'Salidas pendientes',
+      value: summary.value.pendingExits,
+    });
+  }
+
+  return cards;
+});
 
 const filteredItems = computed(() =>
   items.value.filter((item) => {
@@ -459,7 +463,7 @@ function getItemLabel(itemType: AttendanceRegularizationItemType): string {
   }
 
   if (itemType === 'pending_exit') {
-    return 'Salida pendiente';
+    return isAttendanceExitEnabled ? 'Salida pendiente' : 'Entrada pendiente';
   }
 
   if (itemType === 'late_entry_review') {
@@ -487,7 +491,9 @@ function getItemTone(itemType: AttendanceRegularizationItemType): {
   }
 
   if (itemType === 'pending_exit') {
-    return { color: 'orange-1', textColor: 'orange-10', icon: 'logout' };
+    return isAttendanceExitEnabled
+      ? { color: 'orange-1', textColor: 'orange-10', icon: 'logout' }
+      : { color: 'red-1', textColor: 'red-10', icon: 'login' };
   }
 
   if (itemType === 'late_entry_review') {
@@ -505,10 +511,7 @@ function getItemTone(itemType: AttendanceRegularizationItemType): {
   return { color: 'purple-1', textColor: 'purple-10', icon: 'priority_high' };
 }
 
-function buildRegularizationItemKey(
-  item: AttendanceRegularizationItem,
-  index: number,
-): string {
+function buildRegularizationItemKey(item: AttendanceRegularizationItem, index: number): string {
   return [
     item.itemType,
     item.studentId,

@@ -8,8 +8,8 @@
             Revisión simple por estudiante y por aula
           </div>
           <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-            Revisa porcentaje de asistencia, tardanzas, ausencias y registros incompletos
-            del mes seleccionado sin salir del portal administrativo.
+            Revisa porcentaje de asistencia, tardanzas y ausencias del mes seleccionado sin salir
+            del portal administrativo.
           </p>
         </div>
         <div class="col-12 col-lg-auto">
@@ -40,7 +40,8 @@
               hint="Ejemplo: 2026-04"
               :rules="[
                 (value) => Boolean(value) || 'Selecciona el mes',
-                (value) => /^\\d{4}-(0[1-9]|1[0-2])$/.test(String(value ?? '')) || 'Usa el formato AAAA-MM',
+                (value) =>
+                  /^\\d{4}-(0[1-9]|1[0-2])$/.test(String(value ?? '')) || 'Usa el formato AAAA-MM',
               ]"
             >
               <template #prepend>
@@ -110,12 +111,7 @@
             </q-select>
           </div>
           <div class="col-12 col-lg-2">
-            <q-input
-              v-model="filters.search"
-              label="Buscar estudiante"
-              outlined
-              maxlength="120"
-            >
+            <q-input v-model="filters.search" label="Buscar estudiante" outlined maxlength="120">
               <template #prepend>
                 <q-icon name="search" />
               </template>
@@ -145,18 +141,15 @@
         <span class="text-body2 text-grey-7">Cargando reporte mensual...</span>
       </div>
 
-      <div
-        v-else-if="!hasLoadedReport"
-        class="student-operational-profile__empty-state q-mt-lg"
-      >
+      <div v-else-if="!hasLoadedReport" class="student-operational-profile__empty-state q-mt-lg">
         <q-icon name="insights" size="28px" color="grey-6" />
         <div class="text-subtitle2 text-weight-bold text-grey-8">
           Carga el reporte mensual cuando lo necesites
         </div>
         <p class="text-body2 text-grey-7 q-mb-none">
-          Selecciona el mes y aplica filtros si deseas acotar la consulta. Si no
-          eliges filtros academicos, el sistema mostrara el resumen institucional
-          y la primera pagina del detalle por estudiante.
+          Selecciona el mes y aplica filtros si deseas acotar la consulta. Si no eliges filtros
+          academicos, el sistema mostrara el resumen institucional y la primera pagina del detalle
+          por estudiante.
         </p>
       </div>
 
@@ -184,6 +177,7 @@
             :caption="`${monthlyReport.summary.justifiedAbsences} justificadas y ${monthlyReport.summary.unjustifiedAbsences} no justificadas.`"
           />
           <StatSummaryCard
+            v-if="isAttendanceExitEnabled"
             label="Incompletos"
             :value="monthlyReport.summary.incompleteRecords"
             icon="rule"
@@ -196,13 +190,24 @@
           <q-chip class="ui-stat-chip" color="blue-1" text-color="blue-10" icon="login">
             {{ monthlyReport.summary.entriesRegistered }} entradas
           </q-chip>
-          <q-chip class="ui-stat-chip" color="orange-1" text-color="orange-10" icon="logout">
+          <q-chip
+            v-if="isAttendanceExitEnabled"
+            class="ui-stat-chip"
+            color="orange-1"
+            text-color="orange-10"
+            icon="logout"
+          >
             {{ monthlyReport.summary.exitsRegistered }} salidas
           </q-chip>
           <q-chip class="ui-stat-chip" color="amber-1" text-color="amber-10" icon="schedule">
             {{ monthlyReport.summary.lateEntries }} tardanzas
           </q-chip>
-          <q-chip class="ui-stat-chip" color="grey-2" text-color="grey-9" icon="calendar_view_month">
+          <q-chip
+            class="ui-stat-chip"
+            color="grey-2"
+            text-color="grey-9"
+            icon="calendar_view_month"
+          >
             {{ monthlyReport.context.schoolDays }} días hábiles del mes
           </q-chip>
         </div>
@@ -249,12 +254,12 @@
                   <q-chip dense color="amber-1" text-color="amber-10">
                     {{ item.lateEntries }} tardanzas
                   </q-chip>
-                  <q-chip dense color="blue-1" text-color="blue-10">
+                  <q-chip v-if="isAttendanceExitEnabled" dense color="blue-1" text-color="blue-10">
                     {{ item.incompleteRecords }} incompletos
                   </q-chip>
                 </div>
               </q-item-section>
-              <q-item-section side top>
+              <q-item-section v-if="isAttendanceExitEnabled" side top>
                 <div class="text-caption text-grey-7 text-right">Entradas / salidas</div>
                 <div class="text-weight-bold">
                   {{ item.entriesRegistered }} / {{ item.exitsRegistered }}
@@ -286,10 +291,10 @@
                   <th class="text-left">Aula</th>
                   <th class="text-left">% asistencia</th>
                   <th class="text-left">Entradas</th>
-                  <th class="text-left">Salidas</th>
+                  <th v-if="isAttendanceExitEnabled" class="text-left">Salidas</th>
                   <th class="text-left">Tardanzas</th>
                   <th class="text-left">Ausencias</th>
-                  <th class="text-left">Incompletos</th>
+                  <th v-if="isAttendanceExitEnabled" class="text-left">Incompletos</th>
                 </tr>
               </thead>
               <tbody>
@@ -301,7 +306,10 @@
                       {{ item.document || 'Sin documento' }}
                     </div>
                   </td>
-                  <td>{{ item.grade }} {{ item.section }} - {{ item.shift === 'morning' ? 'Mañana' : 'Tarde' }}</td>
+                  <td>
+                    {{ item.grade }} {{ item.section }} -
+                    {{ item.shift === 'morning' ? 'Mañana' : 'Tarde' }}
+                  </td>
                   <td>
                     <div class="text-weight-bold">
                       {{ formatPercentage(item.attendancePercentage) }} %
@@ -311,10 +319,10 @@
                     </div>
                   </td>
                   <td>{{ item.entriesRegistered }}</td>
-                  <td>{{ item.exitsRegistered }}</td>
+                  <td v-if="isAttendanceExitEnabled">{{ item.exitsRegistered }}</td>
                   <td>{{ item.lateEntries }}</td>
                   <td>{{ item.absences }}</td>
-                  <td>{{ item.incompleteRecords }}</td>
+                  <td v-if="isAttendanceExitEnabled">{{ item.incompleteRecords }}</td>
                 </tr>
               </tbody>
             </q-markup-table>
@@ -352,12 +360,10 @@
 import { computed, reactive, ref, watch } from 'vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { getMonthlyAttendanceReport } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
-import type {
-  MonthlyAttendanceReportResponse,
-  StudentShift,
-} from 'src/types/attendance';
+import type { MonthlyAttendanceReportResponse, StudentShift } from 'src/types/attendance';
 
 type FeedbackState = {
   type: 'success' | 'error' | 'warning' | 'info';

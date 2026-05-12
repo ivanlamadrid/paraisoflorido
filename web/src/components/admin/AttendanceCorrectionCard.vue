@@ -4,12 +4,10 @@
       <div class="row items-start justify-between q-col-gutter-lg">
         <div class="col-12 col-lg">
           <div class="ui-eyebrow">Corrección de asistencia</div>
-          <div class="text-subtitle1 text-weight-bold q-mt-sm">
-            Ajuste controlado de entrada o salida
-          </div>
+          <div class="text-subtitle1 text-weight-bold q-mt-sm">Ajuste controlado de entrada</div>
           <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-            Solo dirección y secretaría pueden corregir una marca ya registrada.
-            Cada cambio exige motivo y queda auditado sin borrar el historial.
+            Solo dirección y secretaría pueden corregir una marca ya registrada. Cada cambio exige
+            motivo y queda auditado sin borrar el historial.
           </p>
         </div>
         <div class="col-12 col-lg-auto">
@@ -35,7 +33,7 @@
         <q-input
           v-model.number="context.schoolYear"
           type="number"
-              label="Año escolar"
+          label="Año escolar"
           outlined
           min="2000"
           max="2100"
@@ -61,7 +59,7 @@
 
         <q-select
           v-model="context.section"
-              label="Sección"
+          label="Sección"
           outlined
           emit-value
           map-options
@@ -81,9 +79,9 @@
           :options="shiftOptions"
         >
           <template #prepend>
-                    <q-icon name="schedule" />
-                  </template>
-                </q-select>
+            <q-icon name="schedule" />
+          </template>
+        </q-select>
 
         <div class="context-grid__actions context-grid__actions--attendance">
           <div class="context-grid__helper text-caption text-grey-7">
@@ -130,23 +128,43 @@
       />
 
       <div v-if="dailySummary.totalStudents > 0" class="row q-col-gutter-sm q-mt-lg">
-        <div class="col-12 col-sm-6 col-lg-3">
-          <q-chip class="ui-stat-chip full-width justify-center" color="grey-2" text-color="grey-9" icon="groups">
+        <div v-if="isAttendanceExitEnabled" class="col-12 col-sm-6 col-lg-3">
+          <q-chip
+            class="ui-stat-chip full-width justify-center"
+            color="grey-2"
+            text-color="grey-9"
+            icon="groups"
+          >
             {{ dailySummary.totalStudents }} en el aula
           </q-chip>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-          <q-chip class="ui-stat-chip full-width justify-center" color="blue-1" text-color="blue-10" icon="schedule">
+          <q-chip
+            class="ui-stat-chip full-width justify-center"
+            color="blue-1"
+            text-color="blue-10"
+            icon="schedule"
+          >
             {{ dailySummary.pendingEntries }} entradas pendientes
           </q-chip>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-          <q-chip class="ui-stat-chip full-width justify-center" color="orange-1" text-color="orange-10" icon="logout">
+          <q-chip
+            class="ui-stat-chip full-width justify-center"
+            color="orange-1"
+            text-color="orange-10"
+            icon="logout"
+          >
             {{ dailySummary.pendingExits }} salidas pendientes
           </q-chip>
         </div>
         <div class="col-12 col-sm-6 col-lg-3">
-          <q-chip class="ui-stat-chip full-width justify-center" color="red-1" text-color="red-10" icon="event_busy">
+          <q-chip
+            class="ui-stat-chip full-width justify-center"
+            color="red-1"
+            text-color="red-10"
+            icon="event_busy"
+          >
             {{ dailySummary.absences }} ausencias
           </q-chip>
         </div>
@@ -158,18 +176,18 @@
       </div>
 
       <div v-else-if="dailyItems.length === 0" class="text-center q-py-xl text-grey-7">
-        Carga el aula para revisar entradas y salidas registradas.
+        Carga el aula para revisar entradas registradas.
       </div>
 
       <div v-else class="table-wrap q-mt-lg">
         <q-markup-table flat separator="cell">
           <thead>
             <tr>
-                  <th class="text-left">Código</th>
+              <th class="text-left">Código</th>
               <th class="text-left">Estudiante</th>
               <th class="text-left">Estado diario</th>
               <th class="text-left">Entrada</th>
-              <th class="text-left">Salida</th>
+              <th v-if="isAttendanceExitEnabled" class="text-left">Salida</th>
             </tr>
           </thead>
           <tbody>
@@ -217,7 +235,11 @@
                           label="Ausencia just."
                           no-caps
                           class="support-action-btn"
-                          :disable="Boolean(item.entry) || Boolean(item.exit) || !item.isActive"
+                          :disable="
+                            Boolean(item.entry) ||
+                            (isAttendanceExitEnabled && Boolean(item.exit)) ||
+                            !item.isActive
+                          "
                           @click="openDayStatusDialog(item, 'justified_absence')"
                         />
                       </div>
@@ -229,7 +251,11 @@
                           label="Ausencia no just."
                           no-caps
                           class="support-action-btn"
-                          :disable="Boolean(item.entry) || Boolean(item.exit) || !item.isActive"
+                          :disable="
+                            Boolean(item.entry) ||
+                            (isAttendanceExitEnabled && Boolean(item.exit)) ||
+                            !item.isActive
+                          "
                           @click="openDayStatusDialog(item, 'unjustified_absence')"
                         />
                       </div>
@@ -252,7 +278,7 @@
                   />
                 </div>
               </td>
-              <td>
+              <td v-if="isAttendanceExitEnabled">
                 <div class="attendance-correction-cell">
                   <AttendanceMarkBadge :mark="item.exit" empty-label="Sin salida" />
                   <q-btn
@@ -279,7 +305,7 @@
       <q-card-section class="ui-card-body">
         <div class="row items-start justify-between q-col-gutter-md">
           <div class="col-12 col-md">
-              <div class="ui-eyebrow">Corrección controlada</div>
+            <div class="ui-eyebrow">Corrección controlada</div>
             <div class="text-subtitle1 text-weight-bold q-mt-sm">
               {{ dialogTitle }}
             </div>
@@ -301,7 +327,7 @@
             </span>
           </div>
           <div class="context-summary__item">
-                <span class="context-summary__label">Código</span>
+            <span class="context-summary__label">Código</span>
             <span class="context-summary__value">
               {{ selectedCorrectionTarget.code }}
             </span>
@@ -309,7 +335,12 @@
           <div class="context-summary__item">
             <span class="context-summary__label">Marca actual</span>
             <span class="context-summary__value">
-              {{ selectedCorrectionTarget.markType === 'entry' ? 'Entrada' : 'Salida' }} -
+              {{
+                selectedCorrectionTarget.markType === 'entry' || !isAttendanceExitEnabled
+                  ? 'Entrada'
+                  : 'Salida'
+              }}
+              -
               {{ formatMarkedTime(selectedCorrectionTarget.mark.markedAt) }}
             </span>
           </div>
@@ -370,10 +401,10 @@
             v-model="correctionForm.reason"
             type="textarea"
             autogrow
-              label="Motivo de la corrección"
+            label="Motivo de la corrección"
             outlined
             maxlength="255"
-              :rules="[(value) => Boolean(value?.trim()) || 'Ingresa el motivo de la corrección']"
+            :rules="[(value) => Boolean(value?.trim()) || 'Ingresa el motivo de la corrección']"
           >
             <template #prepend>
               <q-icon name="fact_check" />
@@ -382,13 +413,13 @@
 
           <div class="row items-center justify-between q-gutter-sm">
             <div class="text-caption text-grey-7">
-            El registro original no se elimina; la corrección queda agregada al historial.
+              El registro original no se elimina; la corrección queda agregada al historial.
             </div>
             <div class="correction-action-group">
               <q-btn flat color="grey-8" label="Cerrar" no-caps @click="closeDialog" />
               <q-btn
                 color="primary"
-            label="Guardar corrección"
+                label="Guardar corrección"
                 no-caps
                 type="submit"
                 :loading="isSavingCorrection"
@@ -400,9 +431,7 @@
         <q-separator class="q-my-lg" />
 
         <div class="ui-eyebrow">Historial de correcciones</div>
-        <div class="text-subtitle2 text-weight-bold q-mt-sm">
-          Cambios previos de esta marca
-        </div>
+        <div class="text-subtitle2 text-weight-bold q-mt-sm">Cambios previos de esta marca</div>
 
         <div v-if="isLoadingHistory" class="column items-center q-py-lg q-gutter-md">
           <q-spinner color="primary" size="28px" />
@@ -410,7 +439,7 @@
         </div>
 
         <div v-else-if="correctionHistory.length === 0" class="text-body2 text-grey-7 q-pt-md">
-                Esta marca todavía no tiene correcciones registradas.
+          Esta marca todavía no tiene correcciones registradas.
         </div>
 
         <q-list v-else bordered separator class="rounded-borders q-mt-md correction-history-list">
@@ -422,9 +451,7 @@
               <q-item-label caption>
                 {{ formatCorrectionSubline(item) }}
               </q-item-label>
-              <q-item-label class="q-mt-sm text-body2">
-                Motivo: {{ item.reason }}
-              </q-item-label>
+              <q-item-label class="q-mt-sm text-body2"> Motivo: {{ item.reason }} </q-item-label>
               <q-item-label class="q-mt-sm text-caption text-grey-7">
                 Observacion: {{ item.previousData.observation || 'Sin observacion' }} ->
                 {{ item.nextData.observation || 'Sin observacion' }}
@@ -446,7 +473,7 @@
               {{ dayStatusDialogTitle }}
             </div>
             <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-              Usa este estado cuando el estudiante no tenga entrada ni salida en la fecha seleccionada.
+              Usa este estado cuando el estudiante no tenga entrada en la fecha seleccionada.
             </p>
           </div>
           <div class="col-12 col-md-auto">
@@ -468,7 +495,7 @@
             <span class="context-summary__value">{{ selectedDayStatusTarget.fullName }}</span>
           </div>
           <div class="context-summary__item">
-                <span class="context-summary__label">Código</span>
+            <span class="context-summary__label">Código</span>
             <span class="context-summary__value">{{ selectedDayStatusTarget.code }}</span>
           </div>
           <div class="context-summary__item">
@@ -493,7 +520,7 @@
 
           <div class="row items-center justify-between q-gutter-sm">
             <div class="text-caption text-grey-7">
-            El estado diario aparecerá en la vista del aula y en el historial del estudiante.
+              El estado diario aparecerá en la vista del aula y en el historial del estudiante.
             </div>
             <div class="correction-action-group">
               <q-btn flat color="grey-8" label="Cerrar" no-caps @click="closeDayStatusDialog" />
@@ -516,6 +543,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import AttendanceMarkBadge from 'components/attendance/AttendanceMarkBadge.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import {
   correctAttendanceRecord,
   exportAttendance,
@@ -653,24 +681,28 @@ const dialogTitle = computed(() => {
 
   return selectedCorrectionTarget.value.markType === 'entry'
     ? 'Corregir marca de entrada'
-    : 'Corregir marca de salida';
+    : isAttendanceExitEnabled
+      ? 'Corregir marca de salida'
+      : 'Corregir marca de entrada';
 });
 
-const correctionStatusOptions = computed<
-  Array<{ label: string; value: AttendanceRecordStatus }>
->(() => {
-  if (selectedCorrectionTarget.value?.markType === 'entry') {
+const correctionStatusOptions = computed<Array<{ label: string; value: AttendanceRecordStatus }>>(
+  () => {
+    if (selectedCorrectionTarget.value?.markType === 'entry') {
+      return [
+        { label: 'Regular', value: 'regular' },
+        { label: 'Tardanza', value: 'late' },
+      ];
+    }
+
     return [
       { label: 'Regular', value: 'regular' },
-      { label: 'Tardanza', value: 'late' },
+      ...(isAttendanceExitEnabled
+        ? [{ label: 'Salida anticipada', value: 'early_departure' as const }]
+        : []),
     ];
-  }
-
-  return [
-    { label: 'Regular', value: 'regular' },
-    { label: 'Salida anticipada', value: 'early_departure' },
-  ];
-});
+  },
+);
 
 const dayStatusDialogTitle = computed(() => {
   if (!selectedDayStatusTarget.value) {
@@ -697,7 +729,7 @@ function formatMarkedTime(markedAt: string): string {
 }
 
 function formatCorrectionHeadline(item: AttendanceCorrectionLog): string {
-  const label = item.markType === 'entry' ? 'Entrada' : 'Salida';
+  const label = item.markType === 'entry' || !isAttendanceExitEnabled ? 'Entrada' : 'Salida';
   const statusSuffix =
     item.previousData.status !== item.nextData.status
       ? ` (${getAttendanceRecordStatusLabel(item.previousData.status)} -> ${getAttendanceRecordStatusLabel(item.nextData.status)})`
@@ -738,7 +770,7 @@ function createCorrectionErrorFeedback(error: unknown): FeedbackState {
 
   return {
     type: 'error',
-      title: 'No se pudo guardar la corrección',
+    title: 'No se pudo guardar la corrección',
     message,
   };
 }
@@ -789,9 +821,7 @@ async function handleLoadDailyView(): Promise<void> {
   await loadDailyView();
 }
 
-async function handleExportAttendance(
-  format: AttendanceExportFormat,
-): Promise<void> {
+async function handleExportAttendance(format: AttendanceExportFormat): Promise<void> {
   feedback.value = null;
   exportingFormat.value = format;
 
@@ -843,6 +873,10 @@ async function openCorrectionDialog(
   item: DailyAttendanceItem,
   markType: AttendanceMarkType,
 ): Promise<void> {
+  if (markType === 'exit' && !isAttendanceExitEnabled) {
+    return;
+  }
+
   const mark = markType === 'entry' ? item.entry : item.exit;
 
   if (!mark) {
@@ -911,10 +945,7 @@ async function handleSubmitCorrection(): Promise<void> {
   }
 }
 
-function openDayStatusDialog(
-  item: DailyAttendanceItem,
-  statusType: AttendanceDayStatusType,
-): void {
+function openDayStatusDialog(item: DailyAttendanceItem, statusType: AttendanceDayStatusType): void {
   selectedDayStatusTarget.value = {
     studentId: item.studentId,
     code: item.code,

@@ -13,8 +13,7 @@ const AUXILIARY_OFFLINE_CONTEXT_KEY = 'colegio.auxiliary.offline.context';
 const AUXILIARY_OFFLINE_QUEUE_KEY = 'colegio.auxiliary.offline.queue';
 const AUXILIARY_OFFLINE_SYNC_META_KEY = 'colegio.auxiliary.offline.sync-meta';
 
-export interface AuxiliaryOfflineQueueItem
-  extends AttendanceOfflineSyncItemPayload {
+export interface AuxiliaryOfflineQueueItem extends AttendanceOfflineSyncItemPayload {
   fullName: string;
   queuedAt: string;
   syncError: string | null;
@@ -64,13 +63,8 @@ function createClientId(): string {
   return `offline-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function getAuxiliaryOfflineContextSnapshot():
-  | AttendanceOfflineContextResponse
-  | null {
-  return readStorage<AttendanceOfflineContextResponse | null>(
-    AUXILIARY_OFFLINE_CONTEXT_KEY,
-    null,
-  );
+export function getAuxiliaryOfflineContextSnapshot(): AttendanceOfflineContextResponse | null {
+  return readStorage<AttendanceOfflineContextResponse | null>(AUXILIARY_OFFLINE_CONTEXT_KEY, null);
 }
 
 export function storeAuxiliaryOfflineContextSnapshot(
@@ -78,10 +72,7 @@ export function storeAuxiliaryOfflineContextSnapshot(
 ): void {
   const currentSnapshot = getAuxiliaryOfflineContextSnapshot();
 
-  if (
-    currentSnapshot &&
-    currentSnapshot.context.schoolYear !== snapshot.context.schoolYear
-  ) {
+  if (currentSnapshot && currentSnapshot.context.schoolYear !== snapshot.context.schoolYear) {
     clearAuxiliaryOfflineQueue();
   }
 
@@ -250,9 +241,7 @@ export function queueOfflineManualAttendance(input: {
   });
 }
 
-export function findOfflineStudentByCode(
-  code: string,
-): AttendanceOfflineContextStudent | null {
+export function findOfflineStudentByCode(code: string): AttendanceOfflineContextStudent | null {
   const snapshot = getAuxiliaryOfflineContextSnapshot();
 
   if (!snapshot) {
@@ -260,9 +249,7 @@ export function findOfflineStudentByCode(
   }
 
   const normalizedCode = code.trim().toLowerCase();
-  return (
-    snapshot.students.find((student) => student.code === normalizedCode) ?? null
-  );
+  return snapshot.students.find((student) => student.code === normalizedCode) ?? null;
 }
 
 export function getOfflineStudentsForClassroom(input: {
@@ -284,9 +271,7 @@ export function getOfflineStudentsForClassroom(input: {
   );
 }
 
-export function applyAuxiliaryOfflineSyncResult(
-  result: AttendanceOfflineSyncResponse,
-): void {
+export function applyAuxiliaryOfflineSyncResult(result: AttendanceOfflineSyncResponse): void {
   const currentQueue = getAuxiliaryOfflineQueue();
   const nextQueue = currentQueue
     .map((queuedItem) => {
@@ -298,7 +283,11 @@ export function applyAuxiliaryOfflineSyncResult(
         return queuedItem;
       }
 
-      if (syncItem.status === 'accepted' || syncItem.status === 'duplicate') {
+      if (
+        syncItem.status === 'accepted' ||
+        syncItem.status === 'duplicate' ||
+        syncItem.reason === 'exit_disabled'
+      ) {
         return null;
       }
 

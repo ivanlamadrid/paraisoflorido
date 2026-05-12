@@ -47,12 +47,7 @@
               </q-item-label>
             </q-item-section>
             <q-item-section v-if="!isSidebarMini && item.badgeCount" side>
-              <q-badge
-                rounded
-                color="primary"
-                text-color="white"
-                class="app-sidebar__item-badge"
-              >
+              <q-badge rounded color="primary" text-color="white" class="app-sidebar__item-badge">
                 {{ item.badgeCount > 99 ? '99+' : item.badgeCount }}
               </q-badge>
             </q-item-section>
@@ -75,17 +70,19 @@
             <span class="app-sidebar__role-copy">{{ roleSummary }}</span>
           </div>
 
-          <q-btn
-            v-if="!isDesktop && sessionStore.user && !isSidebarMini"
-            flat
-            color="primary"
-            icon="logout"
-            label="Cerrar sesión"
-            no-caps
-            align="left"
-            class="app-sidebar__logout-btn"
-            @click="handleLogout"
-          />
+          <div v-if="!isDesktop && sessionStore.user && !isSidebarMini" class="column q-gutter-sm">
+            <PushNotificationToggle />
+            <q-btn
+              flat
+              color="primary"
+              icon="logout"
+              label="Cerrar sesión"
+              no-caps
+              align="left"
+              class="app-sidebar__logout-btn"
+              @click="handleLogout"
+            />
+          </div>
         </div>
       </div>
     </q-drawer>
@@ -105,11 +102,7 @@
             />
 
             <div v-if="!isDesktop" class="app-toolbar__mobile-brand">
-              <SchoolMark
-                compact
-                :school-name="institutionStore.schoolName"
-                :show-text="false"
-              />
+              <SchoolMark compact :school-name="institutionStore.schoolName" :show-text="false" />
             </div>
           </div>
 
@@ -140,6 +133,8 @@
               </div>
             </div>
 
+            <PushNotificationToggle compact />
+
             <q-btn
               flat
               color="primary"
@@ -162,12 +157,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
+import type { QNotifyCreateOptions } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
+import PushNotificationToggle from 'components/notifications/PushNotificationToggle.vue';
 import SchoolMark from 'components/ui/SchoolMark.vue';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
+import {
+  setupForegroundMessageListener,
+  type ForegroundPushMessage,
+} from 'src/services/push-notifications';
 import { useInstitutionStore } from 'src/stores/institution-store';
+import { useNotificationsStore } from 'src/stores/notifications-store';
 import { useSessionStore } from 'src/stores/session-store';
 import { useStudentNotificationsStore } from 'src/stores/student-notifications-store';
 import type { UserRole } from 'src/types/session';
@@ -187,10 +189,13 @@ const router = useRouter();
 const $q = useQuasar();
 const institutionStore = useInstitutionStore();
 const sessionStore = useSessionStore();
+const notificationsStore = useNotificationsStore();
 const studentNotificationsStore = useStudentNotificationsStore();
 
 const isSidebarOpen = ref(false);
 const isSidebarMini = ref(false);
+let stopForegroundPushListener: (() => void) | null = null;
+const seenForegroundAttendancePushes = new Set<string>();
 
 const roleLabels: Record<UserRole, string> = {
   director: 'Director',
@@ -235,6 +240,17 @@ const roleSummary = computed(() => {
 
   return 'Gestión administrativa institucional';
 });
+
+function buildNotificationsNavItem(): ShellNavItem {
+  return {
+    key: 'notifications',
+    label: 'Notificaciones',
+    caption: 'Push e historial interno',
+    icon: 'notifications',
+    path: '/notificaciones',
+    badgeCount: notificationsStore.unreadCount,
+  };
+}
 
 const navigationItems = computed<ShellNavItem[]>(() => {
   if (!sessionStore.user) {
@@ -281,6 +297,7 @@ const navigationItems = computed<ShellNavItem[]>(() => {
         icon: 'campaign',
         path: '/comunicados',
       },
+      buildNotificationsNavItem(),
     ];
   }
 
@@ -325,6 +342,7 @@ const navigationItems = computed<ShellNavItem[]>(() => {
         path: '/comunicados',
         badgeCount: studentNotificationsStore.unreadCount,
       },
+      buildNotificationsNavItem(),
     ];
   }
 
@@ -368,6 +386,7 @@ const navigationItems = computed<ShellNavItem[]>(() => {
         icon: 'campaign',
         path: '/tutor/comunicados',
       },
+      buildNotificationsNavItem(),
       {
         key: 'tutor-account',
         label: 'Cuenta',
@@ -387,6 +406,7 @@ const navigationItems = computed<ShellNavItem[]>(() => {
       icon: 'campaign',
       path: '/portal/comunicados',
     },
+    buildNotificationsNavItem(),
     {
       key: 'admin-support',
       label: 'Soporte',
@@ -436,6 +456,10 @@ const navigationItems = computed<ShellNavItem[]>(() => {
 });
 
 const activeNavigationKey = computed(() => {
+  if (route.path.startsWith('/notificaciones')) {
+    return 'notifications';
+  }
+
   if (route.path.startsWith('/portal/comunicados')) {
     return 'admin-announcements';
   }
@@ -445,8 +469,7 @@ const activeNavigationKey = computed(() => {
   }
 
   if (route.path.startsWith('/auxiliar/asistencia')) {
-    const section =
-      typeof route.query.section === 'string' ? route.query.section : 'gate';
+    const section = typeof route.query.section === 'string' ? route.query.section : 'gate';
 
     if (section === 'classroom') {
       return 'auxiliary-classroom';
@@ -468,8 +491,7 @@ const activeNavigationKey = computed(() => {
   }
 
   if (route.path.startsWith('/tutor')) {
-    const section =
-      typeof route.query.section === 'string' ? route.query.section : 'classrooms';
+    const section = typeof route.query.section === 'string' ? route.query.section : 'classrooms';
 
     if (section === 'students') {
       return 'tutor-students';
@@ -491,8 +513,7 @@ const activeNavigationKey = computed(() => {
   }
 
   if (route.path.startsWith('/mi-asistencia')) {
-    const section =
-      typeof route.query.section === 'string' ? route.query.section : 'today';
+    const section = typeof route.query.section === 'string' ? route.query.section : 'today';
 
     if (section === 'history') {
       return 'student-history';
@@ -509,8 +530,7 @@ const activeNavigationKey = computed(() => {
     return 'student-today';
   }
 
-  const section =
-    typeof route.query.section === 'string' ? route.query.section : 'support';
+  const section = typeof route.query.section === 'string' ? route.query.section : 'support';
 
   if (section === 'students') {
     return 'admin-students';
@@ -536,9 +556,7 @@ const sidebarToggleIcon = computed(() => {
     return shellIcons.sidebarMobile;
   }
 
-  return isSidebarMini.value
-    ? shellIcons.sidebarCompact
-    : shellIcons.sidebarExpanded;
+  return isSidebarMini.value ? shellIcons.sidebarCompact : shellIcons.sidebarExpanded;
 });
 
 function toggleSidebar(): void {
@@ -573,6 +591,86 @@ function handleLogout(): void {
   void router.replace('/');
 }
 
+function stopForegroundPush(): void {
+  stopForegroundPushListener?.();
+  stopForegroundPushListener = null;
+}
+
+function getForegroundPushIcon(type: string | undefined): string {
+  if (type === 'attendance_marked' || type === 'attendance_entry_marked') {
+    return 'fact_check';
+  }
+
+  if (type === 'announcement_published') {
+    return 'campaign';
+  }
+
+  return 'notifications';
+}
+
+function handleForegroundPush(message: ForegroundPushMessage): void {
+  void notificationsStore.refresh();
+  const isAttendancePush =
+    message.data.type === 'attendance_marked' || message.data.type === 'attendance_entry_marked';
+  const attendanceRecordId = message.data.attendanceRecordId;
+
+  if (isAttendancePush && attendanceRecordId) {
+    if (seenForegroundAttendancePushes.has(attendanceRecordId)) {
+      return;
+    }
+
+    seenForegroundAttendancePushes.add(attendanceRecordId);
+
+    if (seenForegroundAttendancePushes.size > 50) {
+      const [oldestRecordId] = seenForegroundAttendancePushes;
+      if (oldestRecordId) {
+        seenForegroundAttendancePushes.delete(oldestRecordId);
+      }
+    }
+  }
+
+  if (sessionStore.user?.role === 'student' && isAttendancePush) {
+    void studentNotificationsStore.refreshAttendance({ allowToast: false });
+  }
+
+  if (sessionStore.user?.role === 'student' && message.data.type === 'announcement_published') {
+    void studentNotificationsStore.refreshAnnouncements({ allowToast: false });
+  }
+
+  const notifyPayload: QNotifyCreateOptions = {
+    type: isAttendancePush ? 'positive' : 'info',
+    icon: getForegroundPushIcon(message.data.type),
+    message: message.title,
+    caption: message.body,
+    timeout: 4200,
+    multiLine: true,
+  };
+  const targetRoute = message.data.route;
+
+  if (targetRoute) {
+    $q.notify({
+      ...notifyPayload,
+      actions: [
+        {
+          label: 'Abrir',
+          color: 'white',
+          handler: () => {
+            void router.push(targetRoute);
+          },
+        },
+      ],
+    });
+    return;
+  }
+
+  $q.notify(notifyPayload);
+}
+
+async function startForegroundPush(): Promise<void> {
+  stopForegroundPush();
+  stopForegroundPushListener = await setupForegroundMessageListener(handleForegroundPush);
+}
+
 watch(
   isDesktop,
   (desktop) => {
@@ -583,6 +681,22 @@ watch(
 
     isSidebarMini.value = false;
     isSidebarOpen.value = false;
+  },
+  { immediate: true },
+);
+
+watch(
+  () => sessionStore.user?.id ?? null,
+  (userId) => {
+    stopForegroundPush();
+
+    if (!userId) {
+      notificationsStore.reset();
+      return;
+    }
+
+    void notificationsStore.refresh();
+    void startForegroundPush();
   },
   { immediate: true },
 );
@@ -653,5 +767,9 @@ onMounted(() => {
       // The role pages handle their own offline feedback when needed.
     });
   }
+});
+
+onBeforeUnmount(() => {
+  stopForegroundPush();
 });
 </script>

@@ -7,6 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -18,6 +19,7 @@ import {
 } from 'typeorm';
 import { randomUUID } from 'crypto';
 import * as XLSX from 'xlsx';
+import { parseAttendanceExitEnabled } from '../attendance/attendance.config';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AttendanceDayStatus } from '../attendance/entities/attendance-day-status.entity';
 import { AttendanceRecord } from '../attendance/entities/attendance-record.entity';
@@ -187,6 +189,7 @@ export class StudentsService {
     private readonly tutorAssignmentsRepository: Repository<TutorAssignment>,
     private readonly attendanceService: AttendanceService,
     private readonly institutionService: InstitutionService,
+    private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -1738,11 +1741,12 @@ export class StudentsService {
         (attendanceRecord) =>
           attendanceRecord.markType === AttendanceMarkType.ENTRY,
       ) ?? null;
-    const exit =
-      attendanceRecords.find(
-        (attendanceRecord) =>
-          attendanceRecord.markType === AttendanceMarkType.EXIT,
-      ) ?? null;
+    const exit = this.isAttendanceExitEnabled()
+      ? (attendanceRecords.find(
+          (attendanceRecord) =>
+            attendanceRecord.markType === AttendanceMarkType.EXIT,
+        ) ?? null)
+      : null;
     const absence = attendanceDayStatuses[0] ?? null;
 
     return {
@@ -1765,6 +1769,7 @@ export class StudentsService {
     summary: StudentRecentAttendanceSummaryDto;
     items: StudentRecentAttendanceItemDto[];
   }> {
+    const exitEnabled = this.isAttendanceExitEnabled();
     const periodEnd = this.getTodayInLima();
     const periodStart = this.shiftDate(periodEnd, -29);
     const schoolDates = this.buildSchoolDateRange(periodStart, periodEnd);
@@ -1816,7 +1821,7 @@ export class StudentsService {
 
       if (attendanceRecord.markType === AttendanceMarkType.ENTRY) {
         currentValue.entry = attendanceRecord;
-      } else {
+      } else if (exitEnabled) {
         currentValue.exit = attendanceRecord;
       }
 
@@ -1882,7 +1887,7 @@ export class StudentsService {
         continue;
       }
 
-      if (currentValue.entry || currentValue.exit) {
+      if (currentValue.entry || (exitEnabled && currentValue.exit)) {
         summary.attendedDays += 1;
       }
 
@@ -1894,7 +1899,7 @@ export class StudentsService {
         }
       }
 
-      if (currentValue.exit) {
+      if (exitEnabled && currentValue.exit) {
         summary.exitsRegistered += 1;
 
         if (
@@ -1904,11 +1909,17 @@ export class StudentsService {
         }
       }
 
-      if (currentValue.entry && currentValue.exit) {
+      if (
+        (exitEnabled && currentValue.entry && currentValue.exit) ||
+        (!exitEnabled && currentValue.entry)
+      ) {
         summary.completeDays += 1;
       }
 
-      if (Boolean(currentValue.entry) !== Boolean(currentValue.exit)) {
+      if (
+        exitEnabled &&
+        Boolean(currentValue.entry) !== Boolean(currentValue.exit)
+      ) {
         summary.incompleteRecords += 1;
       }
     }
@@ -1919,15 +1930,21 @@ export class StudentsService {
     );
 
     const items: StudentRecentAttendanceItemDto[] = [
-      ...attendanceRecords.map((attendanceRecord) => ({
-        itemType: 'mark' as const,
-        attendanceDate: attendanceRecord.attendanceDate,
-        markType: attendanceRecord.markType,
-        status: attendanceRecord.status,
-        markedAt: attendanceRecord.markedAt.toISOString(),
-        source: attendanceRecord.source,
-        observation: attendanceRecord.observation,
-      })),
+      ...attendanceRecords
+        .filter(
+          (attendanceRecord) =>
+            exitEnabled ||
+            attendanceRecord.markType === AttendanceMarkType.ENTRY,
+        )
+        .map((attendanceRecord) => ({
+          itemType: 'mark' as const,
+          attendanceDate: attendanceRecord.attendanceDate,
+          markType: attendanceRecord.markType,
+          status: attendanceRecord.status,
+          markedAt: attendanceRecord.markedAt.toISOString(),
+          source: attendanceRecord.source,
+          observation: attendanceRecord.observation,
+        })),
       ...attendanceDayStatuses.map((attendanceDayStatus) => ({
         itemType: 'absence' as const,
         attendanceDate: attendanceDayStatus.attendanceDate,
@@ -3367,6 +3384,12 @@ export class StudentsService {
     return Number(((numerator / denominator) * 100).toFixed(1));
   }
 
+  private isAttendanceExitEnabled(): boolean {
+    return parseAttendanceExitEnabled(
+      this.configService.get('ATTENDANCE_EXIT_ENABLED'),
+    );
+  }
+
   private getAttendanceOperationalLabel(
     entry: AttendanceRecord | null,
     exit: AttendanceRecord | null,
@@ -3376,6 +3399,10 @@ export class StudentsService {
       return absence.statusType === AttendanceDayStatusType.JUSTIFIED_ABSENCE
         ? 'Ausencia justificada'
         : 'Ausencia no justificada';
+    }
+
+    if (!this.isAttendanceExitEnabled()) {
+      return entry ? 'Entrada registrada' : 'Sin entrada registrada';
     }
 
     if (entry && exit) {

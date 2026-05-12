@@ -36,11 +36,7 @@
         </template>
       </PageIntroCard>
 
-      <ResponsiveSectionNav
-        v-model="activeSection"
-        class="q-mt-lg"
-        :items="sectionItems"
-      />
+      <ResponsiveSectionNav v-model="activeSection" class="q-mt-lg" :items="sectionItems" />
 
       <StatusBanner
         v-if="pageFeedback"
@@ -106,9 +102,7 @@
               class="student-operational-profile__empty-state q-mt-lg"
             >
               <q-icon name="groups" size="26px" color="grey-6" />
-              <div class="text-subtitle2 text-weight-bold text-grey-8">
-                Sin secciones asignadas
-              </div>
+              <div class="text-subtitle2 text-weight-bold text-grey-8">Sin secciones asignadas</div>
               <p class="text-body2 text-grey-7 q-mb-none">
                 Dirección debe asignarte al menos un aula para habilitar esta vista.
               </p>
@@ -131,6 +125,7 @@
                   caption="Sin entrada registrada en la fecha elegida."
                 />
                 <StatSummaryCard
+                  v-if="isAttendanceExitEnabled"
                   label="Salidas pendientes"
                   :value="dailySummary.pendingExits"
                   icon="logout"
@@ -159,10 +154,7 @@
                 <span class="text-body2 text-grey-7">Cargando sección asignada...</span>
               </div>
 
-              <div
-                v-else-if="dailyItems.length === 0"
-                class="student-history-empty q-mt-lg"
-              >
+              <div v-else-if="dailyItems.length === 0" class="student-history-empty q-mt-lg">
                 <q-icon name="school" size="32px" color="grey-6" />
                 <div class="text-subtitle2 text-weight-bold">Sin estudiantes para esta sección</div>
                 <p class="text-body2 text-grey-7 q-mb-none">
@@ -170,12 +162,7 @@
                 </p>
               </div>
 
-              <q-list
-                v-else
-                bordered
-                separator
-                class="rounded-borders q-mt-lg support-list"
-              >
+              <q-list v-else bordered separator class="rounded-borders q-mt-lg support-list">
                 <q-item v-for="item in dailyItems" :key="item.studentId" class="q-py-md">
                   <q-item-section>
                     <q-item-label class="text-weight-medium">{{ item.fullName }}</q-item-label>
@@ -195,7 +182,13 @@
                       <q-chip dense color="grey-2" text-color="grey-8" icon="login">
                         {{ item.entry ? formatMarkedTime(item.entry.markedAt) : 'Sin entrada' }}
                       </q-chip>
-                      <q-chip dense color="grey-2" text-color="grey-8" icon="logout">
+                      <q-chip
+                        v-if="isAttendanceExitEnabled"
+                        dense
+                        color="grey-2"
+                        text-color="grey-8"
+                        icon="logout"
+                      >
                         {{ item.exit ? formatMarkedTime(item.exit.markedAt) : 'Sin salida' }}
                       </q-chip>
                     </div>
@@ -234,7 +227,8 @@
                   Revisión rápida de tu sección activa
                 </div>
                 <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                  Filtra por nombre o código y abre la ficha del estudiante sin salir de tu ámbito tutorial.
+                  Filtra por nombre o código y abre la ficha del estudiante sin salir de tu ámbito
+                  tutorial.
                 </p>
               </div>
               <div class="col-12 col-lg-auto">
@@ -252,18 +246,12 @@
               </div>
             </div>
 
-            <div
-              v-if="isLoadingClassroom"
-              class="ui-loading-state q-py-xl q-mt-lg"
-            >
+            <div v-if="isLoadingClassroom" class="ui-loading-state q-py-xl q-mt-lg">
               <q-spinner color="primary" size="32px" />
               <span class="text-body2 text-grey-7">Cargando estudiantes...</span>
             </div>
 
-            <div
-              v-else-if="filteredDailyItems.length === 0"
-              class="student-history-empty q-mt-lg"
-            >
+            <div v-else-if="filteredDailyItems.length === 0" class="student-history-empty q-mt-lg">
               <q-icon name="groups" size="32px" color="grey-6" />
               <div class="text-subtitle2 text-weight-bold">Sin estudiantes para mostrar</div>
               <p class="text-body2 text-grey-7 q-mb-none">
@@ -271,12 +259,7 @@
               </p>
             </div>
 
-            <q-list
-              v-else
-              bordered
-              separator
-              class="rounded-borders q-mt-lg support-list"
-            >
+            <q-list v-else bordered separator class="rounded-borders q-mt-lg support-list">
               <q-item v-for="item in paginatedDailyItems" :key="item.studentId" class="q-py-md">
                 <q-item-section>
                   <q-item-label class="text-weight-medium">{{ item.fullName }}</q-item-label>
@@ -288,7 +271,13 @@
                     <q-chip dense color="grey-2" text-color="grey-8" icon="login">
                       {{ item.entry ? formatMarkedTime(item.entry.markedAt) : 'Sin entrada' }}
                     </q-chip>
-                    <q-chip dense color="grey-2" text-color="grey-8" icon="logout">
+                    <q-chip
+                      v-if="isAttendanceExitEnabled"
+                      dense
+                      color="grey-2"
+                      text-color="grey-8"
+                      icon="logout"
+                    >
                       {{ item.exit ? formatMarkedTime(item.exit.markedAt) : 'Sin salida' }}
                     </q-chip>
                   </div>
@@ -306,10 +295,7 @@
               </q-item>
             </q-list>
 
-            <div
-              v-if="filteredDailyItems.length > rowsPerPage"
-              class="row justify-center q-mt-lg"
-            >
+            <div v-if="filteredDailyItems.length > rowsPerPage" class="row justify-center q-mt-lg">
               <q-pagination
                 v-model="studentsPage"
                 color="primary"
@@ -373,8 +359,8 @@
               Seguimiento básico de tus secciones
             </div>
             <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-              Identifica ausencias consecutivas, registros incompletos o tardanzas reiteradas solo
-              dentro de tus aulas asignadas.
+              Identifica ausencias consecutivas o tardanzas reiteradas solo dentro de tus aulas
+              asignadas.
             </p>
 
             <StatusBanner
@@ -390,10 +376,7 @@
               <span class="text-body2 text-grey-7">Cargando alertas...</span>
             </div>
 
-            <div
-              v-else-if="alerts.length === 0"
-              class="student-history-empty q-mt-lg"
-            >
+            <div v-else-if="alerts.length === 0" class="student-history-empty q-mt-lg">
               <q-icon name="notifications_none" size="32px" color="grey-6" />
               <div class="text-subtitle2 text-weight-bold">Sin alertas activas</div>
               <p class="text-body2 text-grey-7 q-mb-none">
@@ -401,13 +384,12 @@
               </p>
             </div>
 
-            <q-list
-              v-else
-              bordered
-              separator
-              class="rounded-borders q-mt-lg support-list"
-            >
-              <q-item v-for="alert in alerts" :key="`${alert.alertType}-${alert.studentId}`" class="q-py-md">
+            <q-list v-else bordered separator class="rounded-borders q-mt-lg support-list">
+              <q-item
+                v-for="alert in alerts"
+                :key="`${alert.alertType}-${alert.studentId}`"
+                class="q-py-md"
+              >
                 <q-item-section>
                   <q-item-label class="text-weight-medium">{{ alert.fullName }}</q-item-label>
                   <q-item-label caption>
@@ -466,9 +448,7 @@
         <q-card flat bordered class="admin-card q-mt-lg">
           <q-card-section class="ui-card-body">
             <div class="ui-eyebrow">Asignaciones activas</div>
-            <div class="text-subtitle1 text-weight-bold q-mt-sm">
-              Secciones a tu cargo
-            </div>
+            <div class="text-subtitle1 text-weight-bold q-mt-sm">Secciones a tu cargo</div>
 
             <q-list
               v-if="tutorAssignments.length > 0"
@@ -479,17 +459,15 @@
               <q-item v-for="assignment in tutorAssignments" :key="getAssignmentKey(assignment)">
                 <q-item-section>
                   <q-item-label class="text-weight-medium">
-                    {{ assignment.grade }} {{ assignment.section }} · {{ getShiftLabel(assignment.shift) }}
+                    {{ assignment.grade }} {{ assignment.section }} ·
+                    {{ getShiftLabel(assignment.shift) }}
                   </q-item-label>
                   <q-item-label caption>Año escolar {{ assignment.schoolYear }}</q-item-label>
                 </q-item-section>
               </q-item>
             </q-list>
 
-            <div
-              v-else
-              class="student-operational-profile__empty-state q-mt-lg"
-            >
+            <div v-else class="student-operational-profile__empty-state q-mt-lg">
               <q-icon name="groups" size="24px" color="grey-6" />
               <div class="text-subtitle2 text-weight-bold text-grey-8">
                 Sin asignaciones activas
@@ -592,13 +570,16 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
 import PasswordChangeCard from 'components/auth/PasswordChangeCard.vue';
-import ResponsiveSectionNav, { type SectionNavItem } from 'components/navigation/ResponsiveSectionNav.vue';
+import ResponsiveSectionNav, {
+  type SectionNavItem,
+} from 'components/navigation/ResponsiveSectionNav.vue';
 import StudentFollowUpOverviewCard from 'components/student/StudentFollowUpOverviewCard.vue';
 import StudentFollowUpManager from 'components/student/StudentFollowUpManager.vue';
 import StudentOperationalProfilePanel from 'components/student/StudentOperationalProfilePanel.vue';
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { getAttendanceAlerts, getDailyAttendance } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
 import {
@@ -628,7 +609,10 @@ import type {
 } from 'src/types/students';
 import type { TutorAssignmentSummary } from 'src/types/users';
 import { getAttendanceAlertLabel, getAttendanceAlertTone } from 'src/utils/attendance-alerts';
-import { getAttendanceDayStatusLabel, getAttendanceDayStatusTone } from 'src/utils/attendance-status';
+import {
+  getAttendanceDayStatusLabel,
+  getAttendanceDayStatusTone,
+} from 'src/utils/attendance-status';
 
 type TutorSection = 'classrooms' | 'students' | 'followUps' | 'alerts' | 'account';
 
@@ -693,8 +677,9 @@ const isStudentDialogSideSheet = computed(() => $q.screen.gt.md);
 const isStudentDialogMaximized = computed(() => $q.screen.width < 768);
 const selectedAssignment = computed(
   () =>
-    tutorAssignments.value.find((assignment) => getAssignmentKey(assignment) === selectedAssignmentKey.value) ??
-    null,
+    tutorAssignments.value.find(
+      (assignment) => getAssignmentKey(assignment) === selectedAssignmentKey.value,
+    ) ?? null,
 );
 const assignmentOptions = computed(() =>
   tutorAssignments.value.map((assignment) => ({
@@ -711,9 +696,7 @@ const filteredDailyItems = computed(() => {
   }
 
   return dailyItems.value.filter((item) =>
-    [item.fullName, item.code].some((value) =>
-      value.toLowerCase().includes(normalizedSearch),
-    ),
+    [item.fullName, item.code].some((value) => value.toLowerCase().includes(normalizedSearch)),
   );
 });
 const paginatedDailyItems = computed(() => {
@@ -733,9 +716,7 @@ const tutorSectionOptions = computed(() =>
     new Set(
       tutorAssignments.value
         .filter((assignment) =>
-          selectedAssignment.value
-            ? assignment.grade === selectedAssignment.value.grade
-            : true,
+          selectedAssignment.value ? assignment.grade === selectedAssignment.value.grade : true,
         )
         .map((assignment) => assignment.section),
     ),
@@ -793,6 +774,10 @@ function getAssignmentKey(assignment: TutorAssignmentSummary): string {
 function getOperationalStatusLabel(item: DailyAttendanceItem): string {
   if (item.absence) {
     return getAttendanceDayStatusLabel(item.absence.statusType);
+  }
+
+  if (!isAttendanceExitEnabled) {
+    return item.entry ? 'Entrada registrada' : 'Sin entrada registrada';
   }
 
   if (item.entry && item.exit) {
@@ -878,7 +863,9 @@ async function loadTutorAssignments(): Promise<void> {
 
   if (
     !selectedAssignmentKey.value ||
-    !tutorAssignments.value.some((assignment) => getAssignmentKey(assignment) === selectedAssignmentKey.value)
+    !tutorAssignments.value.some(
+      (assignment) => getAssignmentKey(assignment) === selectedAssignmentKey.value,
+    )
   ) {
     const firstAssignment = tutorAssignments.value[0];
 
@@ -1039,9 +1026,7 @@ async function handleOpenStudent(studentId: string): Promise<void> {
   }
 }
 
-async function handleCreateStudentFollowUp(
-  payload: CreateStudentFollowUpPayload,
-): Promise<void> {
+async function handleCreateStudentFollowUp(payload: CreateStudentFollowUpPayload): Promise<void> {
   if (!selectedStudentDetail.value) {
     return;
   }
@@ -1139,16 +1124,13 @@ watch(
   },
 );
 
-watch(
-  [selectedAssignmentKey, attendanceDate],
-  () => {
-    if (!selectedAssignment.value) {
-      return;
-    }
+watch([selectedAssignmentKey, attendanceDate], () => {
+  if (!selectedAssignment.value) {
+    return;
+  }
 
-    void Promise.all([loadDailySection(), loadSectionAlerts(), loadFollowUpsOverview()]);
-  },
-);
+  void Promise.all([loadDailySection(), loadSectionAlerts(), loadFollowUpsOverview()]);
+});
 
 watch(studentSearch, () => {
   studentsPage.value = 1;

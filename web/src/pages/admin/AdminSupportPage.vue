@@ -7,11 +7,17 @@
         description="Organiza estudiantes, asistencia, personal y configuración básica del colegio desde una superficie administrativa más clara."
       >
         <template #meta>
-          <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="admin_panel_settings">
+          <q-chip
+            class="ui-stat-chip"
+            color="red-1"
+            text-color="red-10"
+            icon="admin_panel_settings"
+          >
             Director y secretaría
           </q-chip>
           <q-chip class="ui-stat-chip" color="grey-2" text-color="grey-9" icon="event_note">
-            Año activo {{ institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear }}
+            Año activo
+            {{ institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear }}
           </q-chip>
         </template>
       </PageIntroCard>
@@ -31,7 +37,8 @@
               Parámetros institucionales y cuenta administrativa
             </div>
             <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-              Ajusta los datos base del colegio y mantén tu acceso administrativo al día sin mezclar esta superficie con reportes u operación de asistencia.
+              Ajusta los datos base del colegio y mantén tu acceso administrativo al día sin mezclar
+              esta superficie con reportes u operación de asistencia.
             </p>
           </q-card-section>
         </q-card>
@@ -63,264 +70,277 @@
 
       <section v-show="activeSection === 'support'" class="role-section-view q-mt-lg">
         <q-card flat bordered class="admin-card">
-        <q-card-section class="ui-card-body">
-          <div class="row items-start justify-between q-col-gutter-lg">
-            <div class="col-12 col-lg">
-              <div class="ui-eyebrow">Soporte operativo</div>
-              <div class="text-subtitle1 text-weight-bold q-mt-sm">
-                Alertas y búsqueda rápida del año activo
+          <q-card-section class="ui-card-body">
+            <div class="row items-start justify-between q-col-gutter-lg">
+              <div class="col-12 col-lg">
+                <div class="ui-eyebrow">Soporte operativo</div>
+                <div class="text-subtitle1 text-weight-bold q-mt-sm">
+                  Alertas y búsqueda rápida del año activo
+                </div>
+                <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
+                  Revisa riesgos de asistencia y abre la ficha administrativa cuando necesites
+                  intervenir sobre un caso puntual.
+                </p>
               </div>
-              <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                Revisa riesgos de asistencia y abre la ficha administrativa cuando necesites intervenir sobre un caso puntual.
-              </p>
-            </div>
-            <div class="col-12 col-lg-auto">
-              <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="priority_high">
-                Riesgos del año activo
-              </q-chip>
-            </div>
-          </div>
-
-          <StatusBanner
-            v-if="attendanceAlertsFeedback"
-            class="q-mt-lg"
-            :variant="attendanceAlertsFeedback.type"
-            :title="attendanceAlertsFeedback.title"
-            :message="attendanceAlertsFeedback.message"
-          />
-
-          <q-form class="admin-form-stack q-mt-lg" @submit="handleLoadAttendanceAlerts">
-            <div class="row q-col-gutter-lg admin-form-row">
-              <div class="col-12 col-sm-6 col-lg-2">
-                <q-input
-                  v-model.number="attendanceAlertsFilters.schoolYear"
-                  type="number"
-                  label="Año escolar"
-                  outlined
-                  min="2000"
-                  max="2100"
-                >
-                  <template #prepend>
-                    <q-icon name="calendar_month" />
-                  </template>
-                </q-input>
-              </div>
-              <div class="col-12 col-sm-6 col-lg-2">
-                <q-select
-                  v-model="attendanceAlertsFilters.grade"
-                  label="Grado"
-                  outlined
-                  clearable
-                  emit-value
-                  map-options
-                  :options="enabledGradeOptions"
-                  @update:model-value="handleAttendanceAlertsGradeChange"
-                >
-                  <template #prepend>
-                    <q-icon name="school" />
-                  </template>
-                </q-select>
-              </div>
-              <div class="col-12 col-sm-6 col-lg-2">
-                <q-select
-                  v-model="attendanceAlertsFilters.section"
-                  label="Sección"
-                  outlined
-                  clearable
-                  emit-value
-                  map-options
-                  :options="attendanceAlertsSectionOptions"
-                  :disable="!attendanceAlertsFilters.grade"
-                >
-                  <template #prepend>
-                    <q-icon name="groups" />
-                  </template>
-                </q-select>
-              </div>
-              <div class="col-12 col-sm-6 col-lg-2">
-                <q-select
-                  v-model="attendanceAlertsFilters.shift"
-                  label="Turno"
-                  outlined
-                  clearable
-                  emit-value
-                  map-options
-                  :options="enabledShiftOptions"
-                >
-                  <template #prepend>
-                    <q-icon name="schedule" />
-                  </template>
-                </q-select>
-              </div>
-              <div class="col-12 col-lg-4">
-                <q-input
-                  v-model="attendanceAlertsFilters.search"
-                  label="Buscar por código o estudiante"
-                  outlined
-                  maxlength="120"
-                >
-                  <template #prepend>
-                    <q-icon name="search" />
-                  </template>
-                </q-input>
+              <div class="col-12 col-lg-auto">
+                <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="priority_high">
+                  Riesgos del año activo
+                </q-chip>
               </div>
             </div>
 
-            <div class="row items-center justify-between q-gutter-sm">
-              <div class="alerts-summary-grid">
-                <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="event_busy">
-                  {{ attendanceAlertsSummary.consecutiveAbsenceAlerts }} ausencias consecutivas
-                </q-chip>
-                <q-chip class="ui-stat-chip" color="amber-1" text-color="amber-10" icon="rule">
-                  {{ attendanceAlertsSummary.repeatedIncompleteRecordAlerts }} incompletos
-                </q-chip>
-                <q-chip class="ui-stat-chip" color="orange-1" text-color="orange-10" icon="schedule">
-                  {{ attendanceAlertsSummary.repeatedLateEntryAlerts }} tardanzas
-                </q-chip>
-              </div>
-              <div class="row q-gutter-sm">
-                <q-btn
-                  flat
-                  color="primary"
-                  label="Limpiar"
-                  no-caps
-                  @click="resetAttendanceAlertsFilters"
-                />
-                <q-btn
-                  color="primary"
-                  label="Buscar alertas"
-                  no-caps
-                  type="submit"
-                  :loading="isLoadingAttendanceAlerts"
-                />
-              </div>
-            </div>
-          </q-form>
+            <StatusBanner
+              v-if="attendanceAlertsFeedback"
+              class="q-mt-lg"
+              :variant="attendanceAlertsFeedback.type"
+              :title="attendanceAlertsFeedback.title"
+              :message="attendanceAlertsFeedback.message"
+            />
 
-          <div v-if="isLoadingAttendanceAlerts" class="column items-center q-py-xl q-gutter-md">
-            <q-spinner color="primary" size="34px" />
-            <span class="text-body2 text-grey-7">Cargando alertas internas...</span>
-          </div>
-
-          <div v-else-if="attendanceAlerts.length === 0" class="text-center q-py-xl text-grey-7">
-            No hay alertas activas con esos filtros.
-          </div>
-
-          <q-list
-            v-else
-            bordered
-            separator
-            class="rounded-borders q-mt-lg alerts-list"
-          >
-            <q-item v-for="alert in attendanceAlerts" :key="`${alert.alertType}-${alert.studentId}`">
-              <q-item-section avatar top>
-                <q-chip
-                  square
-                  dense
-                  :color="getAttendanceAlertTone(alert.alertType).color"
-                  :text-color="getAttendanceAlertTone(alert.alertType).textColor"
-                  :icon="getAttendanceAlertTone(alert.alertType).icon"
-                >
-                  {{ getAttendanceAlertLabel(alert.alertType) }}
-                </q-chip>
-              </q-item-section>
-              <q-item-section>
-                <q-item-label class="text-weight-medium">
-                  {{ alert.fullName }}
-                </q-item-label>
-                <q-item-label caption>
-                  {{ alert.studentCode }} - {{ alert.grade }} {{ alert.section }} -
-                  {{ alert.shift === 'morning' ? 'Mañana' : 'Tarde' }}
-                </q-item-label>
-                <q-item-label class="q-mt-sm text-body2">
-                  {{ alert.description }}
-                </q-item-label>
-                <div class="alert-date-row q-mt-sm">
-                  <q-chip
-                    v-for="date in alert.recentDates"
-                    :key="`${alert.studentId}-${alert.alertType}-${date}`"
-                    dense
-                    color="grey-2"
-                    text-color="grey-8"
+            <q-form class="admin-form-stack q-mt-lg" @submit="handleLoadAttendanceAlerts">
+              <div class="row q-col-gutter-lg admin-form-row">
+                <div class="col-12 col-sm-6 col-lg-2">
+                  <q-input
+                    v-model.number="attendanceAlertsFilters.schoolYear"
+                    type="number"
+                    label="Año escolar"
+                    outlined
+                    min="2000"
+                    max="2100"
                   >
-                    {{ formatAlertDate(date) }}
+                    <template #prepend>
+                      <q-icon name="calendar_month" />
+                    </template>
+                  </q-input>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-2">
+                  <q-select
+                    v-model="attendanceAlertsFilters.grade"
+                    label="Grado"
+                    outlined
+                    clearable
+                    emit-value
+                    map-options
+                    :options="enabledGradeOptions"
+                    @update:model-value="handleAttendanceAlertsGradeChange"
+                  >
+                    <template #prepend>
+                      <q-icon name="school" />
+                    </template>
+                  </q-select>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-2">
+                  <q-select
+                    v-model="attendanceAlertsFilters.section"
+                    label="Sección"
+                    outlined
+                    clearable
+                    emit-value
+                    map-options
+                    :options="attendanceAlertsSectionOptions"
+                    :disable="!attendanceAlertsFilters.grade"
+                  >
+                    <template #prepend>
+                      <q-icon name="groups" />
+                    </template>
+                  </q-select>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-2">
+                  <q-select
+                    v-model="attendanceAlertsFilters.shift"
+                    label="Turno"
+                    outlined
+                    clearable
+                    emit-value
+                    map-options
+                    :options="enabledShiftOptions"
+                  >
+                    <template #prepend>
+                      <q-icon name="schedule" />
+                    </template>
+                  </q-select>
+                </div>
+                <div class="col-12 col-lg-4">
+                  <q-input
+                    v-model="attendanceAlertsFilters.search"
+                    label="Buscar por código o estudiante"
+                    outlined
+                    maxlength="120"
+                  >
+                    <template #prepend>
+                      <q-icon name="search" />
+                    </template>
+                  </q-input>
+                </div>
+              </div>
+
+              <div class="row items-center justify-between q-gutter-sm">
+                <div class="alerts-summary-grid">
+                  <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="event_busy">
+                    {{ attendanceAlertsSummary.consecutiveAbsenceAlerts }} ausencias consecutivas
+                  </q-chip>
+                  <q-chip
+                    v-if="isAttendanceExitEnabled"
+                    class="ui-stat-chip"
+                    color="amber-1"
+                    text-color="amber-10"
+                    icon="rule"
+                  >
+                    {{ attendanceAlertsSummary.repeatedIncompleteRecordAlerts }} incompletos
+                  </q-chip>
+                  <q-chip
+                    class="ui-stat-chip"
+                    color="orange-1"
+                    text-color="orange-10"
+                    icon="schedule"
+                  >
+                    {{ attendanceAlertsSummary.repeatedLateEntryAlerts }} tardanzas
                   </q-chip>
                 </div>
-              </q-item-section>
-              <q-item-section side top>
-                <div class="alert-count-badge q-mb-sm">
-                  {{ alert.count }}
+                <div class="row q-gutter-sm">
+                  <q-btn
+                    flat
+                    color="primary"
+                    label="Limpiar"
+                    no-caps
+                    @click="resetAttendanceAlertsFilters"
+                  />
+                  <q-btn
+                    color="primary"
+                    label="Buscar alertas"
+                    no-caps
+                    type="submit"
+                    :loading="isLoadingAttendanceAlerts"
+                  />
                 </div>
+              </div>
+            </q-form>
+
+            <div v-if="isLoadingAttendanceAlerts" class="column items-center q-py-xl q-gutter-md">
+              <q-spinner color="primary" size="34px" />
+              <span class="text-body2 text-grey-7">Cargando alertas internas...</span>
+            </div>
+
+            <div v-else-if="attendanceAlerts.length === 0" class="text-center q-py-xl text-grey-7">
+              No hay alertas activas con esos filtros.
+            </div>
+
+            <q-list v-else bordered separator class="rounded-borders q-mt-lg alerts-list">
+              <q-item
+                v-for="alert in attendanceAlerts"
+                :key="`${alert.alertType}-${alert.studentId}`"
+              >
+                <q-item-section avatar top>
+                  <q-chip
+                    square
+                    dense
+                    :color="getAttendanceAlertTone(alert.alertType).color"
+                    :text-color="getAttendanceAlertTone(alert.alertType).textColor"
+                    :icon="getAttendanceAlertTone(alert.alertType).icon"
+                  >
+                    {{ getAttendanceAlertLabel(alert.alertType) }}
+                  </q-chip>
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-weight-medium">
+                    {{ alert.fullName }}
+                  </q-item-label>
+                  <q-item-label caption>
+                    {{ alert.studentCode }} - {{ alert.grade }} {{ alert.section }} -
+                    {{ alert.shift === 'morning' ? 'Mañana' : 'Tarde' }}
+                  </q-item-label>
+                  <q-item-label class="q-mt-sm text-body2">
+                    {{ alert.description }}
+                  </q-item-label>
+                  <div class="alert-date-row q-mt-sm">
+                    <q-chip
+                      v-for="date in alert.recentDates"
+                      :key="`${alert.studentId}-${alert.alertType}-${date}`"
+                      dense
+                      color="grey-2"
+                      text-color="grey-8"
+                    >
+                      {{ formatAlertDate(date) }}
+                    </q-chip>
+                  </div>
+                </q-item-section>
+                <q-item-section side top>
+                  <div class="alert-count-badge q-mb-sm">
+                    {{ alert.count }}
+                  </div>
+                  <q-btn
+                    flat
+                    color="secondary"
+                    class="support-action-btn"
+                    label="Abrir ficha"
+                    no-caps
+                    @click="
+                      handleOpenAlertStudent(alert.studentId, alert.studentCode, alert.fullName)
+                    "
+                  />
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-card-section>
+        </q-card>
+
+        <q-card flat bordered class="admin-card q-mt-lg">
+          <q-card-section class="ui-card-body">
+            <div class="row items-start justify-between q-col-gutter-lg">
+              <div class="col-12 col-lg">
+                <div class="ui-eyebrow">Búsqueda rápida</div>
+                <div class="text-subtitle1 text-weight-bold q-mt-sm">
+                  Buscar estudiante por código
+                </div>
+                <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
+                  Ubica un estudiante por su código y salta directamente a la ficha administrativa
+                  dentro de Estudiantes.
+                </p>
+              </div>
+              <div class="col-12 col-lg-auto">
+                <q-chip class="ui-stat-chip" color="grey-2" text-color="grey-9" icon="badge">
+                  Código único del estudiante
+                </q-chip>
+              </div>
+            </div>
+
+            <StatusBanner
+              v-if="lookupFeedback"
+              class="q-mt-lg"
+              :variant="lookupFeedback.type"
+              :title="lookupFeedback.title"
+              :message="lookupFeedback.message"
+            />
+
+            <q-form class="support-filter-grid q-mt-lg" @submit="handleLookupStudent">
+              <div class="col-12 col-lg-7">
+                <q-input
+                  v-model="studentLookupCode"
+                  ref="studentLookupInputRef"
+                  label="Código del estudiante"
+                  outlined
+                  maxlength="32"
+                  :rules="[(value) => Boolean(value) || 'Ingresa el código del estudiante']"
+                  @update:model-value="lookupFeedback = null"
+                >
+                  <template #prepend>
+                    <q-icon name="badge" />
+                  </template>
+                </q-input>
+              </div>
+              <div class="col-12 col-lg-5">
                 <q-btn
-                  flat
-                  color="secondary"
-                  class="support-action-btn"
+                  class="full-width"
+                  color="primary"
                   label="Abrir ficha"
                   no-caps
-                  @click="handleOpenAlertStudent(alert.studentId, alert.studentCode, alert.fullName)"
+                  type="submit"
+                  :loading="isLookingUpStudent"
                 />
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-card-section>
-      </q-card>
-
-      <q-card flat bordered class="admin-card q-mt-lg">
-        <q-card-section class="ui-card-body">
-          <div class="row items-start justify-between q-col-gutter-lg">
-            <div class="col-12 col-lg">
-              <div class="ui-eyebrow">Búsqueda rápida</div>
-              <div class="text-subtitle1 text-weight-bold q-mt-sm">
-                Buscar estudiante por código
               </div>
-              <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                Ubica un estudiante por su código y salta directamente a la ficha administrativa dentro de Estudiantes.
-              </p>
-            </div>
-            <div class="col-12 col-lg-auto">
-              <q-chip class="ui-stat-chip" color="grey-2" text-color="grey-9" icon="badge">
-                Código único del estudiante
-              </q-chip>
-            </div>
-          </div>
-
-          <StatusBanner
-            v-if="lookupFeedback"
-            class="q-mt-lg"
-            :variant="lookupFeedback.type"
-            :title="lookupFeedback.title"
-            :message="lookupFeedback.message"
-          />
-
-          <q-form class="support-filter-grid q-mt-lg" @submit="handleLookupStudent">
-            <div class="col-12 col-lg-7">
-              <q-input
-                v-model="studentLookupCode"
-                ref="studentLookupInputRef"
-                label="Código del estudiante"
-                outlined
-                maxlength="32"
-                :rules="[(value) => Boolean(value) || 'Ingresa el código del estudiante']"
-                @update:model-value="lookupFeedback = null"
-              >
-                <template #prepend>
-                  <q-icon name="badge" />
-                </template>
-              </q-input>
-            </div>
-            <div class="col-12 col-lg-5">
-              <q-btn
-                class="full-width"
-                color="primary"
-                label="Abrir ficha"
-                no-caps
-                type="submit"
-                :loading="isLookingUpStudent"
-              />
-            </div>
-          </q-form>
-        </q-card-section>
-      </q-card>
+            </q-form>
+          </q-card-section>
+        </q-card>
       </section>
 
       <section v-show="activeSection === 'attendance'" class="role-section-view q-mt-lg">
@@ -331,14 +351,17 @@
               Regularización, correcciones y reportes
             </div>
             <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-              Reúne la operación administrativa de asistencia sin mezclarla con la ficha institucional del estudiante.
+              Reúne la operación administrativa de asistencia sin mezclarla con la ficha
+              institucional del estudiante.
             </p>
           </q-card-section>
         </q-card>
 
         <AttendanceRegularizationCard
           class="q-mt-lg"
-          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :active-school-year="
+            institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear
+          "
           :enabled-turns="institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon']"
           :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
           :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
@@ -347,7 +370,9 @@
 
         <AttendanceCorrectionCard
           class="q-mt-lg"
-          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :active-school-year="
+            institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear
+          "
           :enabled-turns="institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon']"
           :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
           :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
@@ -362,7 +387,8 @@
                   Descargar CSV o Excel para revisión administrativa
                 </div>
                 <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                  Exporta una fecha o un rango corto del año escolar. Si dejas grado, sección o turno vacíos, la descarga incluirá todo lo que coincida con el rango seleccionado.
+                  Exporta una fecha o un rango corto del año escolar. Si dejas grado, sección o
+                  turno vacíos, la descarga incluirá todo lo que coincida con el rango seleccionado.
                 </p>
               </div>
               <div class="col-12 col-lg-auto">
@@ -395,12 +421,7 @@
                   </q-input>
                 </div>
                 <div class="col-12 col-sm-6 col-lg-3">
-                  <q-input
-                    v-model="attendanceExportFilters.to"
-                    type="date"
-                    label="Hasta"
-                    outlined
-                  >
+                  <q-input v-model="attendanceExportFilters.to" type="date" label="Hasta" outlined>
                     <template #prepend>
                       <q-icon name="event" />
                     </template>
@@ -498,7 +519,9 @@
 
         <AttendanceMonthlyReportsCard
           class="q-mt-lg"
-          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :active-school-year="
+            institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear
+          "
           :enabled-turns="institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon']"
           :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
           :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
@@ -579,7 +602,13 @@
 
                   <div class="admin-form-actions__buttons-row">
                     <div class="admin-form-actions__buttons">
-                      <q-btn flat color="primary" label="Limpiar" no-caps @click="resetUsersFilters" />
+                      <q-btn
+                        flat
+                        color="primary"
+                        label="Limpiar"
+                        no-caps
+                        @click="resetUsersFilters"
+                      />
                       <q-btn
                         color="primary"
                         label="Buscar personal"
@@ -617,11 +646,7 @@
                       <q-item-label caption>
                         {{ user.username }} - {{ roleLabels[user.role] }}
                       </q-item-label>
-                      <q-item-label
-                        v-if="user.role === 'tutor'"
-                        caption
-                        class="q-mt-xs"
-                      >
+                      <q-item-label v-if="user.role === 'tutor'" caption class="q-mt-xs">
                         {{ formatPersonnelAssignments(user) }}
                       </q-item-label>
                     </q-item-section>
@@ -670,10 +695,7 @@
                   </q-item>
                 </q-list>
 
-                <div
-                  v-if="users.length > 0 && usersTotal > 20"
-                  class="row justify-center q-mt-lg"
-                >
+                <div v-if="users.length > 0 && usersTotal > 20" class="row justify-center q-mt-lg">
                   <q-pagination
                     v-model="usersPage"
                     color="primary"
@@ -694,7 +716,9 @@
 
       <section v-show="activeSection === 'students'" class="role-section-view q-mt-lg">
         <StudentCreateCard
-          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :active-school-year="
+            institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear
+          "
           :enabled-turns="institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon']"
           :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
           :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
@@ -704,7 +728,9 @@
         />
 
         <StudentImportCard
-          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :active-school-year="
+            institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear
+          "
           :preview="studentImportPreview"
           :result="studentImportResult"
           :feedback="studentImportFeedback"
@@ -716,7 +742,9 @@
         />
 
         <StudentExportCard
-          :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+          :active-school-year="
+            institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear
+          "
           :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
           :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
           :loading-format="exportingStudentsFormat"
@@ -731,7 +759,8 @@
               Listado, búsqueda y ficha administrativa
             </div>
             <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-              Filtra por código, nombre, grado, sección y turno. Desde aquí se abre la ficha institucional completa para corregir el año activo.
+              Filtra por código, nombre, grado, sección y turno. Desde aquí se abre la ficha
+              institucional completa para corregir el año activo.
             </p>
 
             <q-form class="admin-form-stack q-mt-lg" @submit.prevent="handleSubmitStudentsFilters">
@@ -856,7 +885,8 @@
                     {{ student.code }} - {{ student.document || 'Sin documento' }}
                   </q-item-label>
                   <q-item-label class="q-mt-sm text-body2">
-                    {{ formatStudentClassroom(student) }} - {{ student.isActive ? 'Activo' : 'Inactivo' }}
+                    {{ formatStudentClassroom(student) }} -
+                    {{ student.isActive ? 'Activo' : 'Inactivo' }}
                   </q-item-label>
                 </q-item-section>
                 <q-item-section side top>
@@ -951,7 +981,10 @@
           @update:search="followUpsOverviewFilters.search = $event"
           @update:record-type="followUpsOverviewFilters.recordType = $event"
           @update:status="followUpsOverviewFilters.status = $event"
-          @update:grade="followUpsOverviewFilters.grade = $event; handleFollowUpsOverviewGradeChange()"
+          @update:grade="
+            followUpsOverviewFilters.grade = $event;
+            handleFollowUpsOverviewGradeChange();
+          "
           @update:section="followUpsOverviewFilters.section = $event"
           @update:shift="followUpsOverviewFilters.shift = $event"
           @update:page="followUpsOverview.page = $event"
@@ -978,7 +1011,8 @@
                 Gestión administrativa integral
               </div>
               <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                Revisa identidad, situación, contactos, consentimiento y seguimiento sin perder el contexto de la página administrativa.
+                Revisa identidad, situación, contactos, consentimiento y seguimiento sin perder el
+                contexto de la página administrativa.
               </p>
             </div>
             <div class="col-12 col-md-auto">
@@ -1006,10 +1040,14 @@
             v-else-if="selectedStudent"
             :student="selectedStudent"
             :viewer-role="sessionStore.user?.role === 'secretary' ? 'secretary' : 'director'"
-            :active-school-year="institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear"
+            :active-school-year="
+              institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear
+            "
             :enabled-turns="institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon']"
             :enabled-grades="institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5]"
-            :sections-by-grade="institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade"
+            :sections-by-grade="
+              institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade
+            "
             :feedback="studentDetailFeedback"
             :situation-feedback="studentSituationFeedback"
             :consent-feedback="studentConsentFeedback"
@@ -1043,7 +1081,11 @@
             <div class="col">
               <div class="ui-eyebrow">Personal del colegio</div>
               <div class="text-subtitle1 text-weight-bold q-mt-sm">
-                {{ personnelDialogMode === 'create' ? 'Registrar cuenta interna' : 'Editar cuenta interna' }}
+                {{
+                  personnelDialogMode === 'create'
+                    ? 'Registrar cuenta interna'
+                    : 'Editar cuenta interna'
+                }}
               </div>
               <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
                 Mantén esta gestión separada de estudiantes y deja el cambio obligatorio activo
@@ -1127,11 +1169,10 @@
               <div class="row items-start justify-between q-col-gutter-md">
                 <div class="col">
                   <div class="ui-eyebrow">Secciones asignadas</div>
-                  <div class="text-subtitle2 text-weight-bold q-mt-sm">
-                    Aulas a cargo del tutor
-                  </div>
+                  <div class="text-subtitle2 text-weight-bold q-mt-sm">Aulas a cargo del tutor</div>
                   <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                    Define una o más secciones para limitar asistencia, alertas, fichas y comunicados.
+                    Define una o más secciones para limitar asistencia, alertas, fichas y
+                    comunicados.
                   </p>
                 </div>
                 <div class="col-auto">
@@ -1234,7 +1275,8 @@
                   :type="showPersonnelTemporaryPassword ? 'text' : 'password'"
                   :rules="[
                     (value) => Boolean(value) || 'Ingresa la contraseña temporal',
-                    (value) => value.length >= 8 || 'La contraseña debe tener al menos 8 caracteres',
+                    (value) =>
+                      value.length >= 8 || 'La contraseña debe tener al menos 8 caracteres',
                   ]"
                 >
                   <template #prepend>
@@ -1274,8 +1316,13 @@
                       round
                       dense
                       type="button"
-                      :icon="showPersonnelTemporaryConfirmPassword ? 'visibility_off' : 'visibility'"
-                      @click="showPersonnelTemporaryConfirmPassword = !showPersonnelTemporaryConfirmPassword"
+                      :icon="
+                        showPersonnelTemporaryConfirmPassword ? 'visibility_off' : 'visibility'
+                      "
+                      @click="
+                        showPersonnelTemporaryConfirmPassword =
+                          !showPersonnelTemporaryConfirmPassword
+                      "
                     />
                   </template>
                 </q-input>
@@ -1400,7 +1447,9 @@
               label="Motivo del restablecimiento"
               outlined
               maxlength="255"
-              :rules="[(value) => Boolean(value?.trim()) || 'Ingresa el motivo del restablecimiento']"
+              :rules="[
+                (value) => Boolean(value?.trim()) || 'Ingresa el motivo del restablecimiento',
+              ]"
             >
               <template #prepend>
                 <q-icon name="edit_note" />
@@ -1444,10 +1493,8 @@ import StudentSupportCard from 'components/admin/StudentSupportCard.vue';
 import StudentFollowUpOverviewCard from 'components/student/StudentFollowUpOverviewCard.vue';
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
-import {
-  exportAttendance,
-  getAttendanceAlerts,
-} from 'src/services/api/attendance-api';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
+import { exportAttendance, getAttendanceAlerts } from 'src/services/api/attendance-api';
 import { getApiErrorMessage, getApiErrorStatus } from 'src/services/api/api-errors';
 import { updateInstitutionSettings } from 'src/services/api/institution-api';
 import {
@@ -1516,10 +1563,7 @@ import type {
   UserSummary,
   UsersQuery,
 } from 'src/types/users';
-import {
-  getAttendanceAlertLabel,
-  getAttendanceAlertTone,
-} from 'src/utils/attendance-alerts';
+import { getAttendanceAlertLabel, getAttendanceAlertTone } from 'src/utils/attendance-alerts';
 import { downloadBlobFile } from 'src/utils/download-file';
 
 type FeedbackState = {
@@ -1580,10 +1624,7 @@ const personnelRoleOptions = roleFilterOptions.filter(
   ): option is {
     label: string;
     value: PersonnelRole;
-  } =>
-    option.value === 'secretary' ||
-    option.value === 'auxiliary' ||
-    option.value === 'tutor',
+  } => option.value === 'secretary' || option.value === 'auxiliary' || option.value === 'tutor',
 );
 
 const activeStatusOptions = [
@@ -1749,8 +1790,7 @@ const studentImportPreview = ref<StudentImportPreviewResponse | null>(null);
 const studentImportResult = ref<StudentImportResultResponse | null>(null);
 
 const enabledShiftOptions = computed(() => {
-  const enabledTurns =
-    institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon'];
+  const enabledTurns = institutionStore.settings?.enabledTurns ?? ['morning', 'afternoon'];
 
   return enabledTurns.map((shift) => ({
     label: shift === 'morning' ? 'Turno mañana' : 'Turno tarde',
@@ -1768,8 +1808,7 @@ const enabledGradeOptions = computed(() => {
 });
 
 const allStudentFilterSections = computed(() => {
-  const sectionsByGrade =
-    institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade;
+  const sectionsByGrade = institutionStore.settings?.sectionsByGrade ?? defaultSectionsByGrade;
   const uniqueSections = new Set<string>();
 
   Object.values(sectionsByGrade).forEach((sections) => {
@@ -1782,17 +1821,15 @@ const allStudentFilterSections = computed(() => {
     });
   });
 
-  return Array.from(uniqueSections).sort((left, right) =>
-    left.localeCompare(right, 'es'),
-  );
+  return Array.from(uniqueSections).sort((left, right) => left.localeCompare(right, 'es'));
 });
 
 const studentFilterSectionOptions = computed(() => {
   const availableSections =
     typeof studentsFilters.grade === 'number'
-      ? institutionStore.settings?.sectionsByGrade[String(studentsFilters.grade)] ??
+      ? (institutionStore.settings?.sectionsByGrade[String(studentsFilters.grade)] ??
         defaultSectionsByGrade[String(studentsFilters.grade)] ??
-        []
+        [])
       : allStudentFilterSections.value;
 
   return availableSections.map((section) => ({
@@ -1807,9 +1844,7 @@ const attendanceExportSectionOptions = computed(() => {
   }
 
   const availableSections =
-    institutionStore.settings?.sectionsByGrade[
-      String(attendanceExportFilters.grade)
-    ] ?? [];
+    institutionStore.settings?.sectionsByGrade[String(attendanceExportFilters.grade)] ?? [];
 
   return availableSections.map((section) => ({
     label: section,
@@ -1823,9 +1858,7 @@ const attendanceAlertsSectionOptions = computed(() => {
   }
 
   const availableSections =
-    institutionStore.settings?.sectionsByGrade[
-      String(attendanceAlertsFilters.grade)
-    ] ?? [];
+    institutionStore.settings?.sectionsByGrade[String(attendanceAlertsFilters.grade)] ?? [];
 
   return availableSections.map((section) => ({
     label: section,
@@ -1839,9 +1872,7 @@ const followUpsOverviewSectionOptions = computed(() => {
   }
 
   const availableSections =
-    institutionStore.settings?.sectionsByGrade[
-      String(followUpsOverviewFilters.grade)
-    ] ?? [];
+    institutionStore.settings?.sectionsByGrade[String(followUpsOverviewFilters.grade)] ?? [];
 
   return availableSections.map((section) => ({
     label: section,
@@ -1849,9 +1880,7 @@ const followUpsOverviewSectionOptions = computed(() => {
   }));
 });
 
-function createTutorAssignmentRow(
-  assignment?: TutorAssignmentSummary | TutorAssignmentInput,
-): {
+function createTutorAssignmentRow(assignment?: TutorAssignmentSummary | TutorAssignmentInput): {
   id: string;
   schoolYear: number;
   grade: number | null;
@@ -1862,7 +1891,8 @@ function createTutorAssignmentRow(
     id: assignment && 'id' in assignment ? assignment.id : Math.random().toString(36).slice(2, 10),
     schoolYear:
       assignment?.schoolYear ??
-      (institutionStore.settings?.activeSchoolYear ?? new Date().getFullYear()),
+      institutionStore.settings?.activeSchoolYear ??
+      new Date().getFullYear(),
     grade: assignment?.grade ?? null,
     section: assignment?.section ?? null,
     shift: assignment?.shift ?? null,
@@ -1873,9 +1903,7 @@ function resetTutorAssignmentRows(): void {
   tutorAssignmentRows.value = [];
 }
 
-function addTutorAssignmentRow(
-  assignment?: TutorAssignmentSummary | TutorAssignmentInput,
-): void {
+function addTutorAssignmentRow(assignment?: TutorAssignmentSummary | TutorAssignmentInput): void {
   tutorAssignmentRows.value.push(createTutorAssignmentRow(assignment));
 }
 
@@ -1905,9 +1933,7 @@ function handleTutorAssignmentGradeChange(rowId: string): void {
     return;
   }
 
-  const allowedSections = getTutorAssignmentSectionOptions(row.grade).map(
-    (option) => option.value,
-  );
+  const allowedSections = getTutorAssignmentSectionOptions(row.grade).map((option) => option.value);
 
   if (!row.section || !allowedSections.includes(row.section)) {
     row.section = allowedSections[0] ?? null;
@@ -1997,10 +2023,7 @@ function toPersonnelRole(role: UserRole): PersonnelRole | null {
 }
 
 function normalizeAdminSection(value: unknown): AdminSection {
-  if (
-    typeof value === 'string' &&
-    adminSectionValues.includes(value as AdminSection)
-  ) {
+  if (typeof value === 'string' && adminSectionValues.includes(value as AdminSection)) {
     if (value === 'personal' && !isDirector.value) {
       return defaultAdminSection;
     }
@@ -2111,8 +2134,7 @@ function buildFollowUpsOverviewQuery() {
   } = {
     page: followUpsOverview.value.page,
     limit: followUpsOverview.value.limit,
-    schoolYear:
-      institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear,
+    schoolYear: institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear,
   };
 
   if (followUpsOverviewFilters.search.trim()) {
@@ -2498,9 +2520,7 @@ async function handleOpenAttendanceStudent(
   });
 }
 
-async function handleOpenStudentFromFollowUpOverview(
-  studentId: string,
-): Promise<void> {
+async function handleOpenStudentFromFollowUpOverview(studentId: string): Promise<void> {
   const item = followUpsOverview.value.items.find(
     (currentItem) => currentItem.studentId === studentId,
   );
@@ -2513,9 +2533,7 @@ async function handleOpenStudentFromFollowUpOverview(
   });
 }
 
-async function handleSaveSettings(
-  payload: UpdateInstitutionSettingsPayload,
-): Promise<void> {
+async function handleSaveSettings(payload: UpdateInstitutionSettingsPayload): Promise<void> {
   settingsFeedback.value = null;
 
   if (!payload.schoolName.trim()) {
@@ -2539,8 +2557,7 @@ async function handleSaveSettings(
     settingsFeedback.value = {
       type: 'warning',
       title: 'Configuración incompleta',
-      message:
-        'Debes definir al menos un turno, un grado y una sección por cada grado habilitado.',
+      message: 'Debes definir al menos un turno, un grado y una sección por cada grado habilitado.',
     };
     return;
   }
@@ -2553,9 +2570,7 @@ async function handleSaveSettings(
     studentsFilters.schoolYear = response.activeSchoolYear;
     attendanceExportFilters.schoolYear = response.activeSchoolYear;
     clearStudentImportState();
-    const initialPasswordWasUpdated = Boolean(
-      payload.newInitialStudentPassword?.trim(),
-    );
+    const initialPasswordWasUpdated = Boolean(payload.newInitialStudentPassword?.trim());
     const updatedPendingInitialStudentPasswordsCount =
       response.updatedPendingInitialStudentPasswordsCount ?? 0;
     settingsFeedback.value = {
@@ -2593,11 +2608,7 @@ async function handleSchoolYearPrepared(
 
   closeStudentDialog();
 
-  await Promise.allSettled([
-    loadStudents(),
-    loadAttendanceAlerts(),
-    loadFollowUpsOverview(),
-  ]);
+  await Promise.allSettled([loadStudents(), loadAttendanceAlerts(), loadFollowUpsOverview()]);
 }
 
 async function handleSaveStudent(payload: UpdateStudentPayload): Promise<void> {
@@ -2638,9 +2649,7 @@ async function handleSaveStudent(payload: UpdateStudentPayload): Promise<void> {
   }
 }
 
-async function handleSaveStudentSituation(
-  payload: UpdateStudentSituationPayload,
-): Promise<void> {
+async function handleSaveStudentSituation(payload: UpdateStudentSituationPayload): Promise<void> {
   if (!selectedStudent.value) {
     return;
   }
@@ -2650,9 +2659,7 @@ async function handleSaveStudentSituation(
 
   try {
     await updateStudentSituation(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfileCached(
-      selectedStudent.value.id,
-    );
+    selectedStudent.value = await getStudentInstitutionalProfileCached(selectedStudent.value.id);
     studentSituationFeedback.value = {
       type: 'success',
       title: 'Situación actualizada',
@@ -2670,9 +2677,7 @@ async function handleSaveStudentSituation(
   }
 }
 
-async function handleSaveStudentConsent(
-  payload: UpdateStudentConsentPayload,
-): Promise<void> {
+async function handleSaveStudentConsent(payload: UpdateStudentConsentPayload): Promise<void> {
   if (!selectedStudent.value) {
     return;
   }
@@ -2682,9 +2687,7 @@ async function handleSaveStudentConsent(
 
   try {
     await updateStudentConsent(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfileCached(
-      selectedStudent.value.id,
-    );
+    selectedStudent.value = await getStudentInstitutionalProfileCached(selectedStudent.value.id);
     studentConsentFeedback.value = {
       type: 'success',
       title: 'Consentimiento actualizado',
@@ -2701,9 +2704,7 @@ async function handleSaveStudentConsent(
   }
 }
 
-async function handleCreateStudentContact(
-  payload: CreateStudentContactPayload,
-): Promise<void> {
+async function handleCreateStudentContact(payload: CreateStudentContactPayload): Promise<void> {
   if (!selectedStudent.value) {
     return;
   }
@@ -2723,9 +2724,7 @@ async function handleCreateStudentContact(
 
   try {
     await createStudentContact(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfileCached(
-      selectedStudent.value.id,
-    );
+    selectedStudent.value = await getStudentInstitutionalProfileCached(selectedStudent.value.id);
     studentContactsFeedback.value = {
       type: 'success',
       title: 'Contacto registrado',
@@ -2754,14 +2753,8 @@ async function handleUpdateStudentContact(
   isSavingStudentContact.value = true;
 
   try {
-    await updateStudentContact(
-      selectedStudent.value.id,
-      contactId,
-      payload,
-    );
-    selectedStudent.value = await getStudentInstitutionalProfileCached(
-      selectedStudent.value.id,
-    );
+    await updateStudentContact(selectedStudent.value.id, contactId, payload);
+    selectedStudent.value = await getStudentInstitutionalProfileCached(selectedStudent.value.id);
     studentContactsFeedback.value = {
       type: 'success',
       title: 'Contacto actualizado',
@@ -2788,9 +2781,7 @@ async function handleDeleteStudentContact(contactId: string): Promise<void> {
 
   try {
     await deleteStudentContact(selectedStudent.value.id, contactId);
-    selectedStudent.value = await getStudentInstitutionalProfileCached(
-      selectedStudent.value.id,
-    );
+    selectedStudent.value = await getStudentInstitutionalProfileCached(selectedStudent.value.id);
     studentContactsFeedback.value = {
       type: 'success',
       title: 'Contacto desactivado',
@@ -2807,9 +2798,7 @@ async function handleDeleteStudentContact(contactId: string): Promise<void> {
   }
 }
 
-async function handleCreateStudentFollowUp(
-  payload: CreateStudentFollowUpPayload,
-): Promise<void> {
+async function handleCreateStudentFollowUp(payload: CreateStudentFollowUpPayload): Promise<void> {
   if (!selectedStudent.value) {
     return;
   }
@@ -2819,9 +2808,7 @@ async function handleCreateStudentFollowUp(
 
   try {
     await createStudentFollowUp(selectedStudent.value.id, payload);
-    selectedStudent.value = await getStudentInstitutionalProfileCached(
-      selectedStudent.value.id,
-    );
+    selectedStudent.value = await getStudentInstitutionalProfileCached(selectedStudent.value.id);
     studentFollowUpsFeedback.value = {
       type: 'success',
       title: payload.recordType === 'incident' ? 'Incidencia registrada' : 'Observación registrada',
@@ -2851,9 +2838,7 @@ async function handleUpdateStudentFollowUp(
 
   try {
     await updateStudentFollowUp(selectedStudent.value.id, followUpId, payload);
-    selectedStudent.value = await getStudentInstitutionalProfileCached(
-      selectedStudent.value.id,
-    );
+    selectedStudent.value = await getStudentInstitutionalProfileCached(selectedStudent.value.id);
     studentFollowUpsFeedback.value = {
       type: 'success',
       title: 'Seguimiento actualizado',
@@ -2927,10 +2912,7 @@ async function handlePreviewStudentsImport(file: File): Promise<void> {
     studentImportPreview.value = preview;
     studentImportFeedback.value = {
       type: preview.summary.invalidRows > 0 ? 'warning' : 'success',
-      title:
-        preview.summary.invalidRows > 0
-          ? 'Preview listo con observaciones'
-          : 'Preview listo',
+      title: preview.summary.invalidRows > 0 ? 'Preview listo con observaciones' : 'Preview listo',
       message:
         preview.summary.invalidRows > 0
           ? `Se detectaron ${preview.summary.totalRows} filas. ${preview.summary.validRows} estan listas y ${preview.summary.invalidRows} requieren revision.`
@@ -2947,9 +2929,7 @@ async function handlePreviewStudentsImport(file: File): Promise<void> {
   }
 }
 
-async function handleConfirmStudentsImport(
-  payload: ImportStudentsPayload,
-): Promise<void> {
+async function handleConfirmStudentsImport(payload: ImportStudentsPayload): Promise<void> {
   studentImportFeedback.value = null;
   studentImportResult.value = null;
 
@@ -2979,9 +2959,7 @@ async function handleConfirmStudentsImport(
     studentImportFeedback.value = {
       type: result.summary.importedRows > 0 ? 'success' : 'warning',
       title:
-        result.summary.importedRows > 0
-          ? 'Importacion completada'
-          : 'Importacion sin altas nuevas',
+        result.summary.importedRows > 0 ? 'Importacion completada' : 'Importacion sin altas nuevas',
       message:
         result.summary.importedRows > 0
           ? `Se importaron ${result.summary.importedRows} estudiantes, se generaron ${result.summary.generatedCodes} codigos automaticos${previewInvalidRows > 0 ? ` y quedaron ${previewInvalidRows} filas pendientes por observaciones del preview.` : '.'}`
@@ -3028,9 +3006,7 @@ async function handleExportStudents(payload: {
   }
 }
 
-async function handleResetSelectedStudent(
-  payload: ResetUserPasswordPayload,
-): Promise<void> {
+async function handleResetSelectedStudent(payload: ResetUserPasswordPayload): Promise<void> {
   if (!selectedStudent.value) {
     return;
   }
@@ -3349,9 +3325,7 @@ async function handleTogglePersonnelStatus(user: UserSummary): Promise<void> {
   }
 }
 
-async function handleChangeOwnPassword(
-  payload: ChangePasswordPayload,
-): Promise<void> {
+async function handleChangeOwnPassword(payload: ChangePasswordPayload): Promise<void> {
   accountPasswordFeedback.value = null;
   isChangingOwnPassword.value = true;
 
@@ -3417,9 +3391,7 @@ function handleSubmitStudentsFilters(): void {
 }
 
 function handleAttendanceExportGradeChange(): void {
-  const availableSections = attendanceExportSectionOptions.value.map(
-    (option) => option.value,
-  );
+  const availableSections = attendanceExportSectionOptions.value.map((option) => option.value);
 
   if (
     attendanceExportFilters.section &&
@@ -3435,9 +3407,7 @@ function handleAttendanceExportGradeChange(): void {
 }
 
 function handleAttendanceAlertsGradeChange(): void {
-  const availableSections = attendanceAlertsSectionOptions.value.map(
-    (option) => option.value,
-  );
+  const availableSections = attendanceAlertsSectionOptions.value.map((option) => option.value);
 
   if (
     attendanceAlertsFilters.section &&
@@ -3453,9 +3423,7 @@ function handleAttendanceAlertsGradeChange(): void {
 }
 
 function handleFollowUpsOverviewGradeChange(): void {
-  const availableSections = followUpsOverviewSectionOptions.value.map(
-    (option) => option.value,
-  );
+  const availableSections = followUpsOverviewSectionOptions.value.map((option) => option.value);
 
   if (
     followUpsOverviewFilters.section &&
@@ -3481,9 +3449,7 @@ function resetFollowUpsOverviewFilters(): void {
   void loadFollowUpsOverview();
 }
 
-async function handleExportAttendance(
-  format: AttendanceExportFormat,
-): Promise<void> {
+async function handleExportAttendance(format: AttendanceExportFormat): Promise<void> {
   attendanceExportFeedback.value = null;
 
   if (!attendanceExportFilters.from || !attendanceExportFilters.to) {
@@ -3640,11 +3606,9 @@ onMounted(async () => {
     studentsFilters.schoolYear =
       institutionStore.settings?.activeSchoolYear ?? studentsFilters.schoolYear;
     attendanceExportFilters.schoolYear =
-      institutionStore.settings?.activeSchoolYear ??
-      attendanceExportFilters.schoolYear;
+      institutionStore.settings?.activeSchoolYear ?? attendanceExportFilters.schoolYear;
     attendanceAlertsFilters.schoolYear =
-      institutionStore.settings?.activeSchoolYear ??
-      attendanceAlertsFilters.schoolYear;
+      institutionStore.settings?.activeSchoolYear ?? attendanceAlertsFilters.schoolYear;
   } catch (error) {
     settingsFeedback.value = {
       type: 'error',
@@ -3664,5 +3628,3 @@ onMounted(async () => {
   });
 });
 </script>
-
-

@@ -7,7 +7,7 @@
       <PageIntroCard
         eyebrow="Área del estudiante"
         :title="studentProfile?.firstName ? 'Hola, ' + studentProfile.firstName : 'Mi asistencia'"
-        description="Consulta tu estado del día, revisa tu historial de asistencia y ten tu credencial digital lista para registrar entradas y salidas."
+        description="Consulta tu estado del día, revisa tu historial de asistencia y ten tu credencial digital lista para registrar tu entrada."
       >
         <template #meta>
           <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="badge">
@@ -93,11 +93,27 @@
                     <q-chip
                       dense
                       class="ui-stat-chip"
-                      :color="getAnnouncementPriorityTone(studentNotificationsStore.highlightedAnnouncement.priority).color"
-                      :text-color="getAnnouncementPriorityTone(studentNotificationsStore.highlightedAnnouncement.priority).textColor"
-                      :icon="getAnnouncementPriorityTone(studentNotificationsStore.highlightedAnnouncement.priority).icon"
+                      :color="
+                        getAnnouncementPriorityTone(
+                          studentNotificationsStore.highlightedAnnouncement.priority,
+                        ).color
+                      "
+                      :text-color="
+                        getAnnouncementPriorityTone(
+                          studentNotificationsStore.highlightedAnnouncement.priority,
+                        ).textColor
+                      "
+                      :icon="
+                        getAnnouncementPriorityTone(
+                          studentNotificationsStore.highlightedAnnouncement.priority,
+                        ).icon
+                      "
                     >
-                      {{ getAnnouncementPriorityLabel(studentNotificationsStore.highlightedAnnouncement.priority) }}
+                      {{
+                        getAnnouncementPriorityLabel(
+                          studentNotificationsStore.highlightedAnnouncement.priority,
+                        )
+                      }}
                     </q-chip>
                     <q-chip
                       v-if="studentNotificationsStore.highlightedAnnouncement.isPinned"
@@ -124,7 +140,11 @@
                   icon="visibility"
                   label="Abrir"
                   no-caps
-                  @click="router.push(`/comunicados/${studentNotificationsStore.highlightedAnnouncement?.id}`)"
+                  @click="
+                    router.push(
+                      `/comunicados/${studentNotificationsStore.highlightedAnnouncement?.id}`,
+                    )
+                  "
                 />
               </div>
 
@@ -185,7 +205,7 @@
                 Estado diario y registro personal
               </div>
               <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                Consulta tu situación del día y revisa si tu asistencia de hoy ya está completa.
+                Consulta tu situación del día y revisa si tu entrada de hoy ya está registrada.
               </p>
 
               <StatusBanner
@@ -204,6 +224,7 @@
                   tone="positive"
                 />
                 <StatSummaryCard
+                  v-if="isAttendanceExitEnabled"
                   label="Salida de hoy"
                   :value="todayExitLabel"
                   caption="Hora registrada para la salida del día actual."
@@ -239,7 +260,8 @@
                     Asistencia del rango seleccionado
                   </div>
                   <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                    Filtra por fecha y revisa el resumen del periodo con una lectura clara para móvil y escritorio.
+                    Filtra por fecha y revisa el resumen del periodo con una lectura clara para
+                    móvil y escritorio.
                   </p>
                 </div>
                 <div class="col-12 col-lg-auto">
@@ -263,7 +285,13 @@
                 </q-input>
 
                 <div class="student-history-filter-actions">
-                  <q-btn flat color="primary" label="Mes actual" no-caps @click="resetHistoryFilters" />
+                  <q-btn
+                    flat
+                    color="primary"
+                    label="Mes actual"
+                    no-caps
+                    @click="resetHistoryFilters"
+                  />
                   <q-btn
                     color="primary"
                     label="Actualizar historial"
@@ -275,10 +303,36 @@
               </q-form>
 
               <div class="student-history-summary-grid q-mt-lg">
-                <StatSummaryCard label="Entradas" :value="historySummary.entries" caption="Marcas de entrada en el rango." icon="login" tone="positive" />
-                <StatSummaryCard label="Salidas" :value="historySummary.exits" caption="Marcas de salida en el rango." icon="logout" tone="warning" />
-                <StatSummaryCard label="Ausencias" :value="historySummary.absences" caption="Ausencias justificadas y no justificadas." icon="event_busy" tone="dark" />
-                <StatSummaryCard label="Incompletos" :value="historySummary.incompleteDays" caption="Días con solo entrada o solo salida." icon="warning" tone="info" />
+                <StatSummaryCard
+                  label="Entradas"
+                  :value="historySummary.entries"
+                  caption="Marcas de entrada en el rango."
+                  icon="login"
+                  tone="positive"
+                />
+                <StatSummaryCard
+                  v-if="isAttendanceExitEnabled"
+                  label="Salidas"
+                  :value="historySummary.exits"
+                  caption="Marcas de salida en el rango."
+                  icon="logout"
+                  tone="warning"
+                />
+                <StatSummaryCard
+                  label="Ausencias"
+                  :value="historySummary.absences"
+                  caption="Ausencias justificadas y no justificadas."
+                  icon="event_busy"
+                  tone="dark"
+                />
+                <StatSummaryCard
+                  v-if="isAttendanceExitEnabled"
+                  label="Incompletos"
+                  :value="historySummary.incompleteDays"
+                  caption="Días con solo entrada o solo salida."
+                  icon="warning"
+                  tone="info"
+                />
               </div>
 
               <div v-if="isLoadingHistory" class="ui-loading-state q-mt-lg">
@@ -286,7 +340,10 @@
                 <span class="text-body2 text-grey-7">Actualizando historial...</span>
               </div>
 
-              <div v-else-if="paginatedHistoryItems.length === 0" class="student-history-empty q-mt-lg">
+              <div
+                v-else-if="paginatedHistoryItems.length === 0"
+                class="student-history-empty q-mt-lg"
+              >
                 <q-icon name="event_note" size="32px" color="grey-6" />
                 <div class="text-subtitle2 text-weight-bold">Sin registros en ese rango</div>
                 <p class="text-body2 text-grey-7 q-mb-none">
@@ -297,7 +354,9 @@
               <div v-else class="history-list q-mt-lg">
                 <article
                   v-for="item in paginatedHistoryItems"
-                  :key="item.itemType + '-' + item.attendanceDate + '-' + (item.markType || item.status)"
+                  :key="
+                    item.itemType + '-' + item.attendanceDate + '-' + (item.markType || item.status)
+                  "
                   class="history-entry"
                 >
                   <q-avatar
@@ -365,13 +424,15 @@
                     Credencial lista para registrar asistencia
                   </div>
                   <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                    Muestra este código cuando necesites registrar tu entrada o salida con el auxiliar.
+                    Muestra este código cuando necesites registrar tu entrada con el auxiliar.
                   </p>
 
                   <div class="student-account-details q-mt-lg">
                     <div class="student-account-item">
                       <span class="student-account-item__label">Código</span>
-                      <span class="student-account-item__value">{{ studentProfile?.code || '-' }}</span>
+                      <span class="student-account-item__value">{{
+                        studentProfile?.code || '-'
+                      }}</span>
                     </div>
                     <div class="student-account-item">
                       <span class="student-account-item__label">Aula actual</span>
@@ -412,22 +473,18 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  reactive,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import ResponsiveSectionNav, { type SectionNavItem } from 'components/navigation/ResponsiveSectionNav.vue';
+import ResponsiveSectionNav, {
+  type SectionNavItem,
+} from 'components/navigation/ResponsiveSectionNav.vue';
 import PasswordChangeCard from 'components/auth/PasswordChangeCard.vue';
 import StudentInstitutionalProfileView from 'components/student/StudentInstitutionalProfileView.vue';
 import StudentQrCredentialCard from 'components/student/StudentQrCredentialCard.vue';
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import { getMyAttendanceHistory } from 'src/services/api/attendance-api';
 import { getApiErrorMessage } from 'src/services/api/api-errors';
@@ -526,14 +583,18 @@ const classroomLabel = computed(() => {
 });
 const monthRangeLabel = computed(() => formatMonthRange(historyFilters.from, historyFilters.to));
 
-const todayEntry = computed(() =>
-  todayItems.value.find((item) => item.itemType === 'mark' && item.markType === 'entry') ?? null,
+const todayEntry = computed(
+  () =>
+    todayItems.value.find((item) => item.itemType === 'mark' && item.markType === 'entry') ?? null,
 );
 const todayExit = computed(() =>
-  todayItems.value.find((item) => item.itemType === 'mark' && item.markType === 'exit') ?? null,
+  isAttendanceExitEnabled
+    ? (todayItems.value.find((item) => item.itemType === 'mark' && item.markType === 'exit') ??
+      null)
+    : null,
 );
-const todayAbsence = computed(() =>
-  todayItems.value.find((item) => item.itemType === 'absence') ?? null,
+const todayAbsence = computed(
+  () => todayItems.value.find((item) => item.itemType === 'absence') ?? null,
 );
 
 const todayEntryLabel = computed(() =>
@@ -547,7 +608,9 @@ const todayOperationalShortLabel = computed(() => {
   if (todayAbsence.value?.status === 'justified_absence') return 'Ausencia just.';
   if (todayAbsence.value?.status === 'unjustified_absence') return 'Ausencia no just.';
   if (todayEntry.value?.status === 'late') return 'Tardanza';
-  if (todayExit.value?.status === 'early_departure') return 'Salida anticipada';
+  if (isAttendanceExitEnabled && todayExit.value?.status === 'early_departure')
+    return 'Salida anticipada';
+  if (!isAttendanceExitEnabled && todayEntry.value) return 'Entrada registrada';
   if (todayEntry.value && todayExit.value) return 'Completo';
   if (todayEntry.value || todayExit.value) return 'En proceso';
   return 'Sin registro';
@@ -556,9 +619,12 @@ const todayOperationalShortLabel = computed(() => {
 const todayOperationalCaption = computed(() => {
   if (todayAbsence.value?.observation) return todayAbsence.value.observation;
   if (todayEntry.value?.observation) return todayEntry.value.observation;
-  if (todayExit.value?.observation) return todayExit.value.observation;
-  if (todayEntry.value && todayExit.value) return 'Tu entrada y tu salida de hoy ya están registradas.';
-  if (todayEntry.value || todayExit.value) return 'Todavía queda una marca pendiente por completar en el día.';
+  if (isAttendanceExitEnabled && todayExit.value?.observation) return todayExit.value.observation;
+  if (!isAttendanceExitEnabled && todayEntry.value) return 'Tu entrada de hoy ya está registrada.';
+  if (todayEntry.value && todayExit.value)
+    return 'Tu entrada y tu salida de hoy ya están registradas.';
+  if (todayEntry.value || todayExit.value)
+    return 'Todavía queda una marca pendiente por completar en el día.';
   return 'Todavía no hay asistencia registrada para hoy.';
 });
 
@@ -575,7 +641,17 @@ const todayOverviewBanner = computed<FeedbackState>(() => {
     return {
       type: 'warning',
       title: 'Ausencia no justificada',
-      message: todayAbsence.value.observation || 'Hoy figura una ausencia no justificada en tu registro diario.',
+      message:
+        todayAbsence.value.observation ||
+        'Hoy figura una ausencia no justificada en tu registro diario.',
+    };
+  }
+
+  if (!isAttendanceExitEnabled && todayEntry.value) {
+    return {
+      type: 'success',
+      title: 'Entrada registrada',
+      message: 'Tu entrada de hoy ya quedó registrada.',
     };
   }
 
@@ -591,19 +667,21 @@ const todayOverviewBanner = computed<FeedbackState>(() => {
     return {
       type: 'warning',
       title: 'Entrada con tardanza',
-      message: 'Tu entrada de hoy fue registrada como tardanza. Revisa el detalle en el historial si necesitas contexto.',
+      message:
+        'Tu entrada de hoy fue registrada como tardanza. Revisa el detalle en el historial si necesitas contexto.',
     };
   }
 
-  if (todayExit.value?.status === 'early_departure') {
+  if (isAttendanceExitEnabled && todayExit.value?.status === 'early_departure') {
     return {
       type: 'warning',
       title: 'Salida anticipada',
-      message: 'Tu salida de hoy fue registrada como anticipada. La observación quedó guardada en el sistema.',
+      message:
+        'Tu salida de hoy fue registrada como anticipada. La observación quedó guardada en el sistema.',
     };
   }
 
-  if (todayEntry.value || todayExit.value) {
+  if (isAttendanceExitEnabled && (todayEntry.value || todayExit.value)) {
     return {
       type: 'info',
       title: 'Registro en proceso',
@@ -622,7 +700,9 @@ const paginatedHistoryItems = computed(() => {
   const start = (historyPagination.page - 1) * historyPagination.pageSize;
   return historyItems.value.slice(start, start + historyPagination.pageSize);
 });
-const historyTotalPages = computed(() => Math.max(1, Math.ceil(historyItems.value.length / historyPagination.pageSize)));
+const historyTotalPages = computed(() =>
+  Math.max(1, Math.ceil(historyItems.value.length / historyPagination.pageSize)),
+);
 const historySummary = computed<HistorySummary>(() => {
   const summary: HistorySummary = {
     totalRecords: historyItems.value.length,
@@ -637,7 +717,11 @@ const historySummary = computed<HistorySummary>(() => {
   const dayMap = new Map<string, { entry: boolean; exit: boolean; absence: boolean }>();
 
   for (const item of historyItems.value) {
-    const existingDay = dayMap.get(item.attendanceDate) ?? { entry: false, exit: false, absence: false };
+    const existingDay = dayMap.get(item.attendanceDate) ?? {
+      entry: false,
+      exit: false,
+      absence: false,
+    };
 
     if (item.itemType === 'absence') {
       summary.absences += 1;
@@ -650,7 +734,7 @@ const historySummary = computed<HistorySummary>(() => {
       if (item.status === 'late') summary.lateEntries += 1;
     }
 
-    if (item.itemType === 'mark' && item.markType === 'exit') {
+    if (isAttendanceExitEnabled && item.itemType === 'mark' && item.markType === 'exit') {
       summary.exits += 1;
       existingDay.exit = true;
       if (item.status === 'early_departure') summary.earlyDepartures += 1;
@@ -659,9 +743,9 @@ const historySummary = computed<HistorySummary>(() => {
     dayMap.set(item.attendanceDate, existingDay);
   }
 
-  summary.incompleteDays = Array.from(dayMap.values()).filter(
-    (day) => !day.absence && (day.entry !== day.exit),
-  ).length;
+  summary.incompleteDays = isAttendanceExitEnabled
+    ? Array.from(dayMap.values()).filter((day) => !day.absence && day.entry !== day.exit).length
+    : 0;
 
   return summary;
 });
@@ -899,7 +983,7 @@ function getHistoryTone(item: AttendanceHistoryItem): HistoryTone {
     };
   }
 
-  if (item.markType === 'exit' && item.status === 'early_departure') {
+  if (isAttendanceExitEnabled && item.markType === 'exit' && item.status === 'early_departure') {
     return {
       color: 'amber-1',
       textColor: 'amber-10',
@@ -911,9 +995,10 @@ function getHistoryTone(item: AttendanceHistoryItem): HistoryTone {
   }
 
   return {
-    color: item.markType === 'entry' ? 'green-1' : 'purple-1',
-    textColor: item.markType === 'entry' ? 'green-10' : 'deep-purple-10',
-    icon: item.markType === 'entry' ? 'login' : 'logout',
+    color: item.markType === 'entry' || !isAttendanceExitEnabled ? 'green-1' : 'purple-1',
+    textColor:
+      item.markType === 'entry' || !isAttendanceExitEnabled ? 'green-10' : 'deep-purple-10',
+    icon: item.markType === 'entry' || !isAttendanceExitEnabled ? 'login' : 'logout',
     chipColor: 'grey-2',
     chipTextColor: 'grey-9',
     chipIcon: item.source === 'qr' ? 'qr_code_2' : 'edit_note',
@@ -926,8 +1011,11 @@ function getHistoryTitle(item: AttendanceHistoryItem): string {
   }
 
   if (item.markType === 'entry' && item.status === 'late') return 'Entrada con tardanza';
-  if (item.markType === 'exit' && item.status === 'early_departure') return 'Salida anticipada';
-  return item.markType === 'entry' ? 'Entrada registrada' : 'Salida registrada';
+  if (isAttendanceExitEnabled && item.markType === 'exit' && item.status === 'early_departure')
+    return 'Salida anticipada';
+  return item.markType === 'entry' || !isAttendanceExitEnabled
+    ? 'Entrada registrada'
+    : 'Salida registrada';
 }
 
 function getHistoryChipLabel(item: AttendanceHistoryItem): string {
@@ -936,7 +1024,8 @@ function getHistoryChipLabel(item: AttendanceHistoryItem): string {
   }
 
   if (item.markType === 'entry' && item.status === 'late') return 'Tardanza';
-  if (item.markType === 'exit' && item.status === 'early_departure') return 'Salida anticipada';
+  if (isAttendanceExitEnabled && item.markType === 'exit' && item.status === 'early_departure')
+    return 'Salida anticipada';
   return item.source === 'qr' ? 'QR' : 'Manual';
 }
 

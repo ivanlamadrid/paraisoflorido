@@ -1,8 +1,5 @@
 ﻿<template>
-  <q-page
-    class="auxiliary-page"
-    :class="{ 'auxiliary-page--compact-tablet': isCompactTablet }"
-  >
+  <q-page class="auxiliary-page" :class="{ 'auxiliary-page--compact-tablet': isCompactTablet }">
     <div class="ui-page-shell">
       <PageIntroCard
         eyebrow="Operación diaria"
@@ -53,16 +50,21 @@
               <div class="col-12 col-md">
                 <div class="ui-eyebrow">Puerta</div>
                 <div class="text-subtitle1 text-weight-bold q-mt-sm">
-                  Escaneo continuo de entrada o salida
+                  Escaneo continuo de entrada
                 </div>
                 <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
                   El sistema ubica automáticamente aula y turno desde la matrícula activa del
-                  estudiante. Aquí solo defines si estás registrando entradas o salidas.
+                  estudiante. El flujo oficial registra únicamente entradas.
                 </p>
               </div>
               <div class="col-12 col-md-auto">
                 <div class="auxiliary-gate-meta">
-                  <q-chip class="ui-stat-chip" color="grey-2" text-color="grey-9" icon="calendar_today">
+                  <q-chip
+                    class="ui-stat-chip"
+                    color="grey-2"
+                    text-color="grey-9"
+                    icon="calendar_today"
+                  >
                     {{ formattedGateDate }}
                   </q-chip>
                   <q-chip
@@ -96,7 +98,7 @@
               :message="offlineSyncFeedback.message"
             />
 
-            <div class="auxiliary-gate-mode q-mt-lg">
+            <div v-if="isAttendanceExitEnabled" class="auxiliary-gate-mode q-mt-lg">
               <span class="auxiliary-gate-mode__label">Modo operativo</span>
               <q-btn-toggle
                 v-model="gateMarkType"
@@ -155,7 +157,7 @@
 
               <q-btn
                 color="primary"
-                :label="gateMarkType === 'entry' ? 'Registrar entrada' : 'Registrar salida'"
+                label="Registrar entrada"
                 no-caps
                 type="submit"
                 :loading="isSubmittingScan"
@@ -193,8 +195,15 @@
               <q-chip class="ui-stat-chip" color="orange-1" text-color="orange-10" icon="schedule">
                 {{ getShiftLabel(context.shift) }}
               </q-chip>
-              <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" :icon="currentMarkIcon">
-                {{ context.markType === 'entry' ? 'Entrada' : 'Salida' }}
+              <q-chip
+                class="ui-stat-chip"
+                color="red-1"
+                text-color="red-10"
+                :icon="currentMarkIcon"
+              >
+                {{
+                  context.markType === 'entry' || !isAttendanceExitEnabled ? 'Entrada' : 'Salida'
+                }}
               </q-chip>
               <q-chip
                 class="ui-stat-chip"
@@ -296,6 +305,7 @@
                   </q-select>
 
                   <q-select
+                    v-if="isAttendanceExitEnabled"
                     v-model="context.markType"
                     label="Tipo de marca"
                     outlined
@@ -396,10 +406,7 @@
             </div>
 
             <q-list v-else bordered separator class="rounded-borders q-mt-lg alerts-list">
-              <q-item
-                v-for="student in offlineClassroomStudents"
-                :key="student.studentId"
-              >
+              <q-item v-for="student in offlineClassroomStudents" :key="student.studentId">
                 <q-item-section>
                   <q-item-label class="text-weight-medium">{{ student.fullName }}</q-item-label>
                   <q-item-label caption>
@@ -408,11 +415,11 @@
                   </q-item-label>
                   <q-item-label class="q-mt-sm text-body2">
                     {{
-                      student.queuedEntry && student.queuedExit
+                      isAttendanceExitEnabled && student.queuedEntry && student.queuedExit
                         ? 'Entrada y salida pendientes de sincronizar.'
                         : student.queuedEntry
                           ? 'Entrada pendiente de sincronizar.'
-                          : student.queuedExit
+                          : isAttendanceExitEnabled && student.queuedExit
                             ? 'Salida pendiente de sincronizar.'
                             : 'Sin marca offline pendiente.'
                     }}
@@ -421,7 +428,7 @@
                 <q-item-section side>
                   <q-btn
                     color="primary"
-                    :label="context.markType === 'entry' ? 'Guardar entrada' : 'Guardar salida'"
+                    label="Guardar entrada"
                     no-caps
                     @click="handleOfflineManualRegister(student)"
                   />
@@ -487,18 +494,23 @@
                 caption="Estudiantes sin entrada registrada en la fecha seleccionada."
               />
               <StatSummaryCard
+                v-if="isAttendanceExitEnabled"
                 label="Pendientes de salida"
                 :value="dailySummary.pendingExits"
                 icon="logout"
                 tone="warning"
-                  caption="Estudiantes con salida aún pendiente en esta revisión."
+                caption="Estudiantes con salida aún pendiente en esta revisión."
               />
               <StatSummaryCard
                 label="Incidencias"
                 :value="classroomIncidents"
                 icon="priority_high"
                 tone="primary"
-                caption="Tardanzas, salidas anticipadas, ausencias o registros incompletos."
+                :caption="
+                  isAttendanceExitEnabled
+                    ? 'Tardanzas, salidas anticipadas, ausencias o registros incompletos.'
+                    : 'Tardanzas y ausencias registradas en el aula.'
+                "
               />
             </div>
 
@@ -520,11 +532,11 @@
                 <q-markup-table flat separator="cell">
                   <thead>
                     <tr>
-                  <th class="text-left">Código</th>
+                      <th class="text-left">Código</th>
                       <th class="text-left">Estudiante</th>
                       <th class="text-left">Estado diario</th>
                       <th class="text-left">Entrada</th>
-                      <th class="text-left">Salida</th>
+                      <th v-if="isAttendanceExitEnabled" class="text-left">Salida</th>
                       <th class="text-left">Acciones</th>
                     </tr>
                   </thead>
@@ -543,20 +555,29 @@
                             v-if="item.absence"
                             dense
                             square
-                            :color="getAttendanceDayStatusTone(item.absence?.statusType ?? 'justified_absence').color"
-                            :text-color="getAttendanceDayStatusTone(item.absence?.statusType ?? 'justified_absence').textColor"
+                            :color="
+                              getAttendanceDayStatusTone(
+                                item.absence?.statusType ?? 'justified_absence',
+                              ).color
+                            "
+                            :text-color="
+                              getAttendanceDayStatusTone(
+                                item.absence?.statusType ?? 'justified_absence',
+                              ).textColor
+                            "
                           >
-                            {{ getAttendanceDayStatusLabel(item.absence?.statusType ?? 'justified_absence') }}
+                            {{
+                              getAttendanceDayStatusLabel(
+                                item.absence?.statusType ?? 'justified_absence',
+                              )
+                            }}
                           </q-chip>
                           <template v-else>
                             <q-chip dense square color="grey-2" text-color="grey-8">
                               {{ getOperationalStatusLabel(item) }}
                             </q-chip>
                           </template>
-                          <div
-                            v-if="item.absence?.observation"
-                            class="attendance-mark-badge__note"
-                          >
+                          <div v-if="item.absence?.observation" class="attendance-mark-badge__note">
                             {{ item.absence?.observation }}
                           </div>
                         </div>
@@ -577,7 +598,7 @@
                           />
                         </div>
                       </td>
-                      <td>
+                      <td v-if="isAttendanceExitEnabled">
                         <div class="attendance-correction-cell">
                           <AttendanceMarkBadge :mark="item.exit" empty-label="Sin salida" />
                           <q-btn
@@ -600,7 +621,11 @@
                             color="primary"
                             class="auxiliary-action-btn"
                             :icon="context.markType === 'entry' ? 'login' : 'logout'"
-                            :label="context.markType === 'entry' ? 'Marcar entrada' : 'Marcar salida'"
+                            :label="
+                              context.markType === 'entry' || !isAttendanceExitEnabled
+                                ? 'Marcar entrada'
+                                : 'Marcar salida'
+                            "
                             no-caps
                             :disable="isManualActionDisabled(item)"
                             :loading="manualSubmittingStudentId === item.studentId"
@@ -654,7 +679,9 @@
                             dense
                             square
                             :color="getAttendanceDayStatusTone(item.absence.statusType).color"
-                            :text-color="getAttendanceDayStatusTone(item.absence.statusType).textColor"
+                            :text-color="
+                              getAttendanceDayStatusTone(item.absence.statusType).textColor
+                            "
                           >
                             {{ getAttendanceDayStatusLabel(item.absence.statusType) }}
                           </q-chip>
@@ -682,7 +709,7 @@
                         />
                       </div>
 
-                      <div>
+                      <div v-if="isAttendanceExitEnabled">
                         <span class="student-daily-mobile-card__label">Salida</span>
                         <div class="q-mt-xs">
                           <AttendanceMarkBadge :mark="item.exit" empty-label="Sin salida" />
@@ -707,7 +734,11 @@
                         color="primary"
                         class="auxiliary-action-btn"
                         :icon="context.markType === 'entry' ? 'login' : 'logout'"
-                        :label="context.markType === 'entry' ? 'Marcar entrada' : 'Marcar salida'"
+                        :label="
+                          context.markType === 'entry' || !isAttendanceExitEnabled
+                            ? 'Marcar entrada'
+                            : 'Marcar salida'
+                        "
                         no-caps
                         :disable="isManualActionDisabled(item)"
                         :loading="manualSubmittingStudentId === item.studentId"
@@ -729,7 +760,6 @@
             </template>
           </q-card-section>
         </q-card>
-
       </section>
 
       <section v-show="activeSection === 'pending'" class="role-section-view q-mt-lg">
@@ -742,8 +772,8 @@
                   Sincronización offline y riesgos del aula activa
                 </div>
                 <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
-                  Revisa qué quedó pendiente de subir y consulta las alertas del aula cuando
-                  tengas conexión.
+                  Revisa qué quedó pendiente de subir y consulta las alertas del aula cuando tengas
+                  conexión.
                 </p>
               </div>
               <div class="col-12 col-lg-auto">
@@ -751,10 +781,21 @@
                   <q-chip class="ui-stat-chip" color="red-1" text-color="red-10" icon="event_busy">
                     {{ attendanceAlertsSummary.consecutiveAbsenceAlerts }} ausencias consecutivas
                   </q-chip>
-                  <q-chip class="ui-stat-chip" color="amber-1" text-color="amber-10" icon="rule">
+                  <q-chip
+                    v-if="isAttendanceExitEnabled"
+                    class="ui-stat-chip"
+                    color="amber-1"
+                    text-color="amber-10"
+                    icon="rule"
+                  >
                     {{ attendanceAlertsSummary.repeatedIncompleteRecordAlerts }} incompletos
                   </q-chip>
-                  <q-chip class="ui-stat-chip" color="orange-1" text-color="orange-10" icon="schedule">
+                  <q-chip
+                    class="ui-stat-chip"
+                    color="orange-1"
+                    text-color="orange-10"
+                    icon="schedule"
+                  >
                     {{ attendanceAlertsSummary.repeatedLateEntryAlerts }} tardanzas
                   </q-chip>
                 </div>
@@ -814,16 +855,8 @@
                       </p>
                     </div>
 
-                    <q-list
-                      v-else
-                      bordered
-                      separator
-                      class="rounded-borders alerts-list"
-                    >
-                      <q-item
-                        v-for="item in offlineQueue.slice(0, 8)"
-                        :key="item.clientId"
-                      >
+                    <q-list v-else bordered separator class="rounded-borders alerts-list">
+                      <q-item v-for="item in offlineQueue.slice(0, 8)" :key="item.clientId">
                         <q-item-section avatar top>
                           <q-chip
                             square
@@ -832,16 +865,23 @@
                             text-color="amber-10"
                             :icon="item.markType === 'entry' ? 'login' : 'logout'"
                           >
-                            {{ item.markType === 'entry' ? 'Entrada' : 'Salida' }}
+                            {{
+                              item.markType === 'entry' || !isAttendanceExitEnabled
+                                ? 'Entrada'
+                                : 'Salida'
+                            }}
                           </q-chip>
                         </q-item-section>
                         <q-item-section>
-                          <q-item-label class="text-weight-medium">{{ item.fullName }}</q-item-label>
+                          <q-item-label class="text-weight-medium">{{
+                            item.fullName
+                          }}</q-item-label>
                           <q-item-label caption>
                             {{ item.grade }} {{ item.section }} - {{ getShiftLabel(item.shift) }}
                           </q-item-label>
                           <q-item-label class="q-mt-sm text-body2">
-                            {{ formatDateLong(item.attendanceDate) }} - {{ formatMarkedTime(item.markedAt) }}
+                            {{ formatDateLong(item.attendanceDate) }} -
+                            {{ formatMarkedTime(item.markedAt) }}
                           </q-item-label>
                           <q-item-label v-if="item.syncError" class="q-mt-xs text-negative">
                             {{ item.syncError }}
@@ -959,12 +999,7 @@
               </p>
             </div>
 
-            <q-list
-              v-else
-              bordered
-              separator
-              class="rounded-borders q-mt-lg alerts-list"
-            >
+            <q-list v-else bordered separator class="rounded-borders q-mt-lg alerts-list">
               <q-item
                 v-for="alert in attendanceAlerts"
                 :key="`${alert.alertType}-${alert.studentId}`"
@@ -1025,9 +1060,7 @@
           <q-card flat bordered class="admin-card">
             <q-card-section class="ui-card-body">
               <div class="ui-eyebrow">Cuenta</div>
-              <div class="text-subtitle1 text-weight-bold q-mt-sm">
-                Sesión activa del auxiliar
-              </div>
+              <div class="text-subtitle1 text-weight-bold q-mt-sm">Sesión activa del auxiliar</div>
               <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
                 Revisa tus datos de acceso y el estado operativo actual sin salir del modulo de
                 asistencia.
@@ -1081,7 +1114,9 @@
                 <div class="context-summary__item">
                   <span class="context-summary__label">Modo Puerta</span>
                   <span class="context-summary__value">
-                    {{ gateMarkType === 'entry' ? 'Entrada' : 'Salida' }}
+                    {{
+                      gateMarkType === 'entry' || !isAttendanceExitEnabled ? 'Entrada' : 'Salida'
+                    }}
                   </span>
                 </div>
                 <div class="context-summary__item">
@@ -1090,7 +1125,9 @@
                 </div>
                 <div class="context-summary__item">
                   <span class="context-summary__label">Aula activa</span>
-                  <span class="context-summary__value">{{ context.grade }} {{ context.section }}</span>
+                  <span class="context-summary__value"
+                    >{{ context.grade }} {{ context.section }}</span
+                  >
                 </div>
                 <div class="context-summary__item">
                   <span class="context-summary__label">Turno</span>
@@ -1099,7 +1136,11 @@
                 <div class="context-summary__item">
                   <span class="context-summary__label">Marca manual</span>
                   <span class="context-summary__value">
-                    {{ context.markType === 'entry' ? 'Entrada' : 'Salida' }}
+                    {{
+                      context.markType === 'entry' || !isAttendanceExitEnabled
+                        ? 'Entrada'
+                        : 'Salida'
+                    }}
                   </span>
                 </div>
                 <div class="context-summary__item">
@@ -1152,7 +1193,11 @@
             <div class="col-12 col-md">
               <div class="ui-eyebrow">Corrección operativa</div>
               <div class="text-subtitle1 text-weight-bold q-mt-sm">
-                {{ selectedCorrectionTarget?.markType === 'entry' ? 'Corregir entrada' : 'Corregir salida' }}
+                {{
+                  selectedCorrectionTarget?.markType === 'entry' || !isAttendanceExitEnabled
+                    ? 'Corregir entrada'
+                    : 'Corregir salida'
+                }}
               </div>
               <p class="text-body2 text-grey-7 q-mt-xs q-mb-none">
                 Ajusta la marca del día actual con motivo obligatorio. La corrección queda auditada
@@ -1272,9 +1317,7 @@
           <q-separator class="q-my-lg" />
 
           <div class="ui-eyebrow">Historial de correcciones</div>
-          <div class="text-subtitle2 text-weight-bold q-mt-sm">
-            Cambios previos de esta marca
-          </div>
+          <div class="text-subtitle2 text-weight-bold q-mt-sm">Cambios previos de esta marca</div>
 
           <div v-if="isLoadingCorrectionHistory" class="ui-loading-state q-py-lg">
             <q-spinner color="primary" size="28px" />
@@ -1294,9 +1337,7 @@
                 <q-item-label caption>
                   {{ formatCorrectionSubline(item) }}
                 </q-item-label>
-                <q-item-label class="q-mt-sm text-body2">
-                  Motivo: {{ item.reason }}
-                </q-item-label>
+                <q-item-label class="q-mt-sm text-body2"> Motivo: {{ item.reason }} </q-item-label>
                 <q-item-label class="q-mt-sm text-caption text-grey-7">
                   Observación: {{ item.previousData.observation || 'Sin observación' }} ->
                   {{ item.nextData.observation || 'Sin observación' }}
@@ -1362,15 +1403,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  reactive,
-  ref,
-  watch,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRoute, useRouter } from 'vue-router';
 import AttendanceMarkBadge from 'components/attendance/AttendanceMarkBadge.vue';
@@ -1382,6 +1415,7 @@ import StudentOperationalProfilePanel from 'components/student/StudentOperationa
 import PageIntroCard from 'components/ui/PageIntroCard.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
 import StatusBanner from 'components/ui/StatusBanner.vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import { useResponsiveDevice } from 'src/composables/use-responsive-device';
 import {
   correctAttendanceRecord,
@@ -1394,7 +1428,11 @@ import {
   registerAttendanceManual,
   syncOfflineAttendanceBatch,
 } from 'src/services/api/attendance-api';
-import { getApiErrorMessage, getApiErrorStatus, isApiNetworkError } from 'src/services/api/api-errors';
+import {
+  getApiErrorMessage,
+  getApiErrorStatus,
+  isApiNetworkError,
+} from 'src/services/api/api-errors';
 import { getHealthStatus } from 'src/services/api/health-api';
 import {
   applyAuxiliaryOfflineSyncResult,
@@ -1430,10 +1468,7 @@ import type {
 import type { InstitutionSettings } from 'src/types/institution';
 import type { ChangePasswordPayload } from 'src/types/session';
 import type { StudentDetail } from 'src/types/students';
-import {
-  getAttendanceAlertLabel,
-  getAttendanceAlertTone,
-} from 'src/utils/attendance-alerts';
+import { getAttendanceAlertLabel, getAttendanceAlertTone } from 'src/utils/attendance-alerts';
 import {
   getAttendanceDayStatusLabel,
   getAttendanceDayStatusTone,
@@ -1511,16 +1546,10 @@ const correctionHistory = ref<AttendanceCorrectionLog[]>([]);
 const dailyItems = ref<DailyAttendanceItem[]>([]);
 const dailySummary = ref<DailyAttendanceSummary>(createEmptyDailySummary());
 const attendanceAlerts = ref<AttendanceAlert[]>([]);
-const attendanceAlertsSummary = ref<AttendanceAlertsSummary>(
-  createEmptyAlertsSummary(),
-);
+const attendanceAlertsSummary = ref<AttendanceAlertsSummary>(createEmptyAlertsSummary());
 const attendanceAlertsSearch = ref('');
-const browserOnline = ref(
-  typeof navigator === 'undefined' ? true : navigator.onLine,
-);
-const backendReachable = ref<boolean | null>(
-  browserOnline.value ? null : false,
-);
+const browserOnline = ref(typeof navigator === 'undefined' ? true : navigator.onLine);
+const backendReachable = ref<boolean | null>(browserOnline.value ? null : false);
 const isLoadingOfflineContext = ref(false);
 const isSyncingOfflineQueue = ref(false);
 const offlineContextSnapshot = ref(getAuxiliaryOfflineContextSnapshot());
@@ -1552,16 +1581,14 @@ const gateModeOptions: Array<{ label: string; value: AttendanceMarkType }> = [
   { label: 'Entrada', value: 'entry' },
   { label: 'Salida', value: 'exit' },
 ];
-const enabledTurns = computed<StudentShift[]>(() =>
-  institutionStore.settings?.enabledTurns ??
-  (['morning', 'afternoon'] satisfies StudentShift[]),
+const enabledTurns = computed<StudentShift[]>(
+  () =>
+    institutionStore.settings?.enabledTurns ?? (['morning', 'afternoon'] satisfies StudentShift[]),
 );
 
-const enabledGrades = computed<number[]>(() =>
-  institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5],
+const enabledGrades = computed<number[]>(
+  () => institutionStore.settings?.enabledGrades ?? [1, 2, 3, 4, 5],
 );
-
-
 
 const shiftOptions = computed(() =>
   enabledTurns.value.map((shift) => ({
@@ -1588,10 +1615,12 @@ const sectionOptions = computed(() => {
 });
 
 const markTypeOptions = computed(() =>
-  gateModeOptions.map((option) => ({
-    label: option.label,
-    value: option.value,
-  })),
+  gateModeOptions
+    .filter((option) => isAttendanceExitEnabled || option.value === 'entry')
+    .map((option) => ({
+      label: option.label,
+      value: option.value,
+    })),
 );
 
 const statusOptions = computed<Array<{ label: string; value: AttendanceRecordStatus }>>(() => {
@@ -1604,21 +1633,19 @@ const statusOptions = computed<Array<{ label: string; value: AttendanceRecordSta
 
   return [
     { label: 'Regular', value: 'regular' },
-    { label: 'Salida anticipada', value: 'early_departure' },
+    ...(isAttendanceExitEnabled
+      ? [{ label: 'Salida anticipada', value: 'early_departure' as const }]
+      : []),
   ];
 });
 
 const formattedGateDate = computed(() => formatDateLong(getTodayInLima()));
 const formattedContextDate = computed(() => formatDateLong(context.attendanceDate));
 const currentMarkIcon = computed(() =>
-  context.markType === 'entry' ? 'login' : 'logout',
+  context.markType === 'entry' || !isAttendanceExitEnabled ? 'login' : 'logout',
 );
-const currentStatusLabel = computed(() =>
-  getAttendanceRecordStatusLabel(context.status),
-);
-const currentStatusTone = computed(() =>
-  getAttendanceRecordStatusTone(context.status),
-);
+const currentStatusLabel = computed(() => getAttendanceRecordStatusLabel(context.status));
+const currentStatusTone = computed(() => getAttendanceRecordStatusTone(context.status));
 const activeSectionLabel = computed(() => {
   if (activeSection.value === 'classroom') {
     return 'Modo Aula';
@@ -1658,14 +1685,15 @@ const offlineClassroomStudents = computed(() => {
           ((item.studentId && item.studentId === student.studentId) ||
             (item.studentCode && item.studentCode === student.code)),
       ) ?? null;
-    const queuedExit =
-      offlineQueue.value.find(
-        (item) =>
-          item.attendanceDate === context.attendanceDate &&
-          item.markType === 'exit' &&
-          ((item.studentId && item.studentId === student.studentId) ||
-            (item.studentCode && item.studentCode === student.code)),
-      ) ?? null;
+    const queuedExit = isAttendanceExitEnabled
+      ? (offlineQueue.value.find(
+          (item) =>
+            item.attendanceDate === context.attendanceDate &&
+            item.markType === 'exit' &&
+            ((item.studentId && item.studentId === student.studentId) ||
+              (item.studentCode && item.studentCode === student.code)),
+        ) ?? null)
+      : null;
 
     return {
       ...student,
@@ -1677,8 +1705,7 @@ const offlineClassroomStudents = computed(() => {
 const offlineQueueClassrooms = computed(() => {
   const labels = new Set(
     offlineQueue.value.map(
-      (item) =>
-        `${item.grade} ${item.section} - ${getShiftLabel(item.shift)}`,
+      (item) => `${item.grade} ${item.section} - ${getShiftLabel(item.shift)}`,
     ),
   );
 
@@ -1697,36 +1724,34 @@ const lastOfflineSyncLabel = computed(() => {
     timeZone: 'America/Lima',
   }).format(new Date(value));
 });
-const isOnline = computed(
-  () => browserOnline.value && backendReachable.value !== false,
-);
+const isOnline = computed(() => browserOnline.value && backendReachable.value !== false);
 const classroomIncidents = computed(
   () =>
     dailySummary.value.lateEntries +
-    dailySummary.value.earlyDepartures +
+    (isAttendanceExitEnabled ? dailySummary.value.earlyDepartures : 0) +
     dailySummary.value.absences +
-    dailySummary.value.incompleteRecords,
+    (isAttendanceExitEnabled ? dailySummary.value.incompleteRecords : 0),
 );
 const isStudentDialogSideSheet = computed(() => $q.screen.gt.md);
 const isStudentDialogMaximized = computed(() => $q.screen.width < 768);
-const canCorrectCurrentClassroom = computed(
-  () => context.attendanceDate === getTodayInLima(),
-);
-const correctionStatusOptions = computed<
-  Array<{ label: string; value: AttendanceRecordStatus }>
->(() => {
-  if (selectedCorrectionTarget.value?.markType === 'entry') {
+const canCorrectCurrentClassroom = computed(() => context.attendanceDate === getTodayInLima());
+const correctionStatusOptions = computed<Array<{ label: string; value: AttendanceRecordStatus }>>(
+  () => {
+    if (selectedCorrectionTarget.value?.markType === 'entry') {
+      return [
+        { label: 'Regular', value: 'regular' },
+        { label: 'Tardanza', value: 'late' },
+      ];
+    }
+
     return [
       { label: 'Regular', value: 'regular' },
-      { label: 'Tardanza', value: 'late' },
+      ...(isAttendanceExitEnabled
+        ? [{ label: 'Salida anticipada', value: 'early_departure' as const }]
+        : []),
     ];
-  }
-
-  return [
-    { label: 'Regular', value: 'regular' },
-    { label: 'Salida anticipada', value: 'early_departure' },
-  ];
-});
+  },
+);
 
 const dailyFocusFeedback = computed<FeedbackState>(() => {
   if (dailySummary.value.totalStudents === 0) {
@@ -1738,7 +1763,7 @@ const dailyFocusFeedback = computed<FeedbackState>(() => {
     };
   }
 
-  if (context.markType === 'entry') {
+  if (context.markType === 'entry' || !isAttendanceExitEnabled) {
     if (dailySummary.value.pendingEntries === 0) {
       return {
         type: 'success',
@@ -1850,6 +1875,10 @@ function getOperationalStatusLabel(item: DailyAttendanceItem): string {
     return getAttendanceDayStatusLabel(item.absence.statusType);
   }
 
+  if (!isAttendanceExitEnabled) {
+    return item.entry ? 'Entrada registrada' : 'Sin entrada registrada';
+  }
+
   if (item.entry && item.exit) {
     return 'Completo';
   }
@@ -1874,6 +1903,10 @@ function isManualActionDisabled(item: DailyAttendanceItem): boolean {
     return Boolean(item.entry);
   }
 
+  if (!isAttendanceExitEnabled) {
+    return Boolean(item.entry);
+  }
+
   return Boolean(item.exit) || !item.entry;
 }
 
@@ -1885,11 +1918,15 @@ function isCorrectionActionDisabled(
     return true;
   }
 
+  if (markType === 'exit' && !isAttendanceExitEnabled) {
+    return true;
+  }
+
   return markType === 'entry' ? !item.entry : !item.exit;
 }
 
 function formatCorrectionHeadline(item: AttendanceCorrectionLog): string {
-  const label = item.markType === 'entry' ? 'Entrada' : 'Salida';
+  const label = item.markType === 'entry' || !isAttendanceExitEnabled ? 'Entrada' : 'Salida';
   const statusSuffix =
     item.previousData.status !== item.nextData.status
       ? ` (${getAttendanceRecordStatusLabel(item.previousData.status)} -> ${getAttendanceRecordStatusLabel(item.nextData.status)})`
@@ -2043,17 +2080,16 @@ function ensureContextMatchesInstitution(settings: InstitutionSettings): void {
     context.section = availableSections[0] ?? 'A';
   }
 
-  if (
-    context.markType === 'entry' &&
-    !['regular', 'late'].includes(context.status)
-  ) {
+  if (!isAttendanceExitEnabled) {
+    context.markType = 'entry';
+    gateMarkType.value = 'entry';
+  }
+
+  if (context.markType === 'entry' && !['regular', 'late'].includes(context.status)) {
     context.status = 'regular';
   }
 
-  if (
-    context.markType === 'exit' &&
-    !['regular', 'early_departure'].includes(context.status)
-  ) {
+  if (context.markType === 'exit' && !['regular', 'early_departure'].includes(context.status)) {
     context.status = 'regular';
   }
 }
@@ -2061,7 +2097,7 @@ function ensureContextMatchesInstitution(settings: InstitutionSettings): void {
 function restorePersistedGateMode(): void {
   const stored = localStorage.getItem(AUXILIARY_GATE_MODE_STORAGE_KEY);
 
-  if (stored === 'entry' || stored === 'exit') {
+  if (stored === 'entry' || (isAttendanceExitEnabled && stored === 'exit')) {
     gateMarkType.value = stored;
   }
 }
@@ -2096,7 +2132,7 @@ function restorePersistedClassroomContext(): void {
       context.shift = parsed.shift;
     }
 
-    if (parsed.markType === 'entry' || parsed.markType === 'exit') {
+    if (parsed.markType === 'entry' || (isAttendanceExitEnabled && parsed.markType === 'exit')) {
       context.markType = parsed.markType;
     }
 
@@ -2121,7 +2157,7 @@ function persistClassroomContext(): void {
       grade: context.grade,
       section: context.section,
       shift: context.shift,
-      markType: context.markType,
+      markType: isAttendanceExitEnabled ? context.markType : 'entry',
       status: context.status,
     }),
   );
@@ -2218,9 +2254,10 @@ async function loadOfflineContext(): Promise<void> {
   }
 }
 
-function resolveOfflineStudentSnapshot(
-  lookup: { studentId: string; studentCode: string },
-): AttendanceOfflineContextStudent | null {
+function resolveOfflineStudentSnapshot(lookup: {
+  studentId: string;
+  studentCode: string;
+}): AttendanceOfflineContextStudent | null {
   const snapshot = offlineSnapshot.value;
 
   if (!snapshot) {
@@ -2295,21 +2332,14 @@ async function syncPendingOfflineQueue(): Promise<void> {
     const rejectedCount = response.summary.rejectedItems;
     offlineSyncFeedback.value = {
       type: rejectedCount > 0 ? 'warning' : 'success',
-      title:
-        rejectedCount > 0
-          ? 'Sincronización parcial'
-          : 'Pendientes sincronizados',
+      title: rejectedCount > 0 ? 'Sincronización parcial' : 'Pendientes sincronizados',
       message:
         rejectedCount > 0
           ? `Se sincronizaron ${response.summary.acceptedItems + response.summary.duplicateItems} marca(s) y ${rejectedCount} quedaron pendientes por revisión.`
           : `Se sincronizaron ${response.summary.acceptedItems + response.summary.duplicateItems} marca(s) correctamente.`,
     };
 
-    await Promise.all([
-      loadOfflineContext(),
-      loadDailyAttendance(),
-      loadAttendanceAlerts(),
-    ]);
+    await Promise.all([loadOfflineContext(), loadDailyAttendance(), loadAttendanceAlerts()]);
   } catch (error) {
     handleConnectivityFailure(error);
     offlineSyncFeedback.value = {
@@ -2390,8 +2420,7 @@ async function loadAttendanceAlerts(): Promise<void> {
     attendanceAlertsFeedback.value = {
       type: 'info',
       title: 'Alertas no disponibles sin conexión',
-      message:
-        'Las alertas del aula volverán a cargarse cuando recuperes internet.',
+      message: 'Las alertas del aula volverán a cargarse cuando recuperes internet.',
     };
     return;
   }
@@ -2429,7 +2458,9 @@ async function loadAttendanceAlerts(): Promise<void> {
     attendanceAlertsSummary.value = createEmptyAlertsSummary();
     attendanceAlertsFeedback.value = {
       type: isOnline.value ? 'error' : 'info',
-      title: isOnline.value ? 'No se pudieron cargar las alertas' : 'Alertas no disponibles sin conexión',
+      title: isOnline.value
+        ? 'No se pudieron cargar las alertas'
+        : 'Alertas no disponibles sin conexión',
       message: isOnline.value
         ? getApiErrorMessage(error)
         : 'Las alertas del aula volverán a cargarse cuando recuperes internet.',
@@ -2447,11 +2478,7 @@ async function handleContextSubmit(): Promise<void> {
     ensureContextMatchesInstitution(institutionStore.settings);
   }
   persistClassroomContext();
-  await Promise.all([
-    loadDailyAttendance(),
-    loadAttendanceAlerts(),
-    loadOfflineContext(),
-  ]);
+  await Promise.all([loadDailyAttendance(), loadAttendanceAlerts(), loadOfflineContext()]);
   isContextEditorOpen.value = false;
 
   if (!dailyFeedback.value) {
@@ -2504,11 +2531,11 @@ async function handleScanSubmit(): Promise<void> {
         student,
         attendanceDate: getTodayInLima(),
         schoolYear: context.schoolYear,
-        markType: gateMarkType.value,
+        markType: isAttendanceExitEnabled ? gateMarkType.value : 'entry',
       });
       refreshOfflineState();
       scanFeedback.value = buildOfflineQueueSuccessFeedback(
-        gateMarkType.value === 'entry'
+        gateMarkType.value === 'entry' || !isAttendanceExitEnabled
           ? 'Entrada guardada sin conexión'
           : 'Salida guardada sin conexión',
         student,
@@ -2519,7 +2546,7 @@ async function handleScanSubmit(): Promise<void> {
 
     const scanPayload: RegisterAttendanceByScanPayload = {
       studentCode,
-      markType: gateMarkType.value,
+      markType: isAttendanceExitEnabled ? gateMarkType.value : 'entry',
     };
     const response = await registerAttendanceByScan(scanPayload);
 
@@ -2527,7 +2554,7 @@ async function handleScanSubmit(): Promise<void> {
     scanFeedback.value = {
       type: 'success',
       title:
-        response.markType === 'entry'
+        response.markType === 'entry' || !isAttendanceExitEnabled
           ? 'Entrada registrada'
           : 'Salida registrada',
       message: `${response.fullName} - ${response.grade} ${response.section} - ${getShiftLabel(response.shift)} a las ${formatMarkedTime(response.markedAt)}.`,
@@ -2570,8 +2597,7 @@ async function handleManualRegister(item: DailyAttendanceItem): Promise<void> {
         dailyFeedback.value = {
           type: 'warning',
           title: 'Sin snapshot local del estudiante',
-          message:
-            'Recarga el aula con internet antes de registrar marcas manuales sin conexión.',
+          message: 'Recarga el aula con internet antes de registrar marcas manuales sin conexión.',
         };
         return;
       }
@@ -2580,12 +2606,12 @@ async function handleManualRegister(item: DailyAttendanceItem): Promise<void> {
         student,
         attendanceDate: context.attendanceDate,
         schoolYear: context.schoolYear,
-        markType: context.markType,
+        markType: isAttendanceExitEnabled ? context.markType : 'entry',
         status: context.status,
       });
       refreshOfflineState();
       dailyFeedback.value = buildOfflineQueueSuccessFeedback(
-        context.markType === 'entry'
+        context.markType === 'entry' || !isAttendanceExitEnabled
           ? 'Entrada guardada sin conexión'
           : 'Salida guardada sin conexión',
         student,
@@ -2600,7 +2626,7 @@ async function handleManualRegister(item: DailyAttendanceItem): Promise<void> {
       grade: context.grade,
       section: context.section,
       shift: context.shift,
-      markType: context.markType,
+      markType: isAttendanceExitEnabled ? context.markType : 'entry',
       status: context.status,
     };
 
@@ -2609,17 +2635,13 @@ async function handleManualRegister(item: DailyAttendanceItem): Promise<void> {
     dailyFeedback.value = {
       type: 'success',
       title:
-        response.markType === 'entry'
+        response.markType === 'entry' || !isAttendanceExitEnabled
           ? 'Entrada manual registrada'
           : 'Salida manual registrada',
-      message: `Se registró ${response.markType === 'entry' ? 'la entrada' : 'la salida'} de ${response.fullName} en el aula activa.`,
+      message: `Se registró ${response.markType === 'entry' || !isAttendanceExitEnabled ? 'la entrada' : 'la salida'} de ${response.fullName} en el aula activa.`,
     };
 
-    await Promise.all([
-      loadDailyAttendance(),
-      loadAttendanceAlerts(),
-      loadOfflineContext(),
-    ]);
+    await Promise.all([loadDailyAttendance(), loadAttendanceAlerts(), loadOfflineContext()]);
   } catch (error) {
     handleConnectivityFailure(error);
     const status = getApiErrorStatus(error);
@@ -2644,12 +2666,12 @@ function handleOfflineManualRegister(student: AttendanceOfflineContextStudent): 
       student,
       attendanceDate: context.attendanceDate,
       schoolYear: context.schoolYear,
-      markType: context.markType,
+      markType: isAttendanceExitEnabled ? context.markType : 'entry',
       status: context.status,
     });
     refreshOfflineState();
     dailyFeedback.value = buildOfflineQueueSuccessFeedback(
-      context.markType === 'entry'
+      context.markType === 'entry' || !isAttendanceExitEnabled
         ? 'Entrada guardada sin conexión'
         : 'Salida guardada sin conexión',
       student,
@@ -2706,7 +2728,7 @@ async function handleSubmitCorrection(): Promise<void> {
     dailyFeedback.value = {
       type: 'success',
       title:
-        selectedCorrectionTarget.value?.markType === 'entry'
+        selectedCorrectionTarget.value?.markType === 'entry' || !isAttendanceExitEnabled
           ? 'Entrada corregida'
           : 'Salida corregida',
       message: `La corrección de ${selectedCorrectionTarget.value.fullName} quedó registrada con auditoría.`,
@@ -2760,9 +2782,7 @@ async function handleLoadAttendanceAlerts(): Promise<void> {
   await loadAttendanceAlerts();
 }
 
-async function handleChangeOwnPassword(
-  payload: ChangePasswordPayload,
-): Promise<void> {
+async function handleChangeOwnPassword(payload: ChangePasswordPayload): Promise<void> {
   accountPasswordFeedback.value = null;
   isChangingOwnPassword.value = true;
 
@@ -2796,11 +2816,7 @@ async function handleReconnect(): Promise<void> {
     return;
   }
 
-  await Promise.all([
-    loadOfflineContext(),
-    loadDailyAttendance(),
-    loadAttendanceAlerts(),
-  ]);
+  await Promise.all([loadOfflineContext(), loadDailyAttendance(), loadAttendanceAlerts()]);
 
   if (offlineQueue.value.length > 0) {
     await syncPendingOfflineQueue();
@@ -2837,12 +2853,24 @@ async function handleOpenStudent(studentId: string): Promise<void> {
 }
 
 watch(gateMarkType, (markType) => {
+  if (!isAttendanceExitEnabled && markType !== 'entry') {
+    gateMarkType.value = 'entry';
+    localStorage.setItem(AUXILIARY_GATE_MODE_STORAGE_KEY, 'entry');
+    return;
+  }
+
   localStorage.setItem(AUXILIARY_GATE_MODE_STORAGE_KEY, markType);
 });
 
 watch(
   () => context.markType,
   (markType) => {
+    if (!isAttendanceExitEnabled && markType !== 'entry') {
+      context.markType = 'entry';
+      context.status = 'regular';
+      return;
+    }
+
     if (markType === 'entry' && context.status === 'early_departure') {
       context.status = 'regular';
     }
@@ -2879,13 +2907,7 @@ watch(scannerModeEnabled, (enabled) => {
 });
 
 watch(
-  () => [
-    context.attendanceDate,
-    context.schoolYear,
-    context.grade,
-    context.section,
-    context.shift,
-  ],
+  () => [context.attendanceDate, context.schoolYear, context.grade, context.section, context.shift],
   () => {
     refreshOfflineState();
   },
@@ -2919,11 +2941,7 @@ onMounted(async () => {
     }
   }
 
-  await Promise.all([
-    loadOfflineContext(),
-    loadDailyAttendance(),
-    loadAttendanceAlerts(),
-  ]);
+  await Promise.all([loadOfflineContext(), loadDailyAttendance(), loadAttendanceAlerts()]);
 
   if (activeSection.value === 'gate' && scannerModeEnabled.value) {
     focusScannerInput();
@@ -2935,4 +2953,3 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', handleDisconnect);
 });
 </script>
-

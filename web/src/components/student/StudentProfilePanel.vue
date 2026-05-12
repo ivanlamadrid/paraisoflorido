@@ -38,7 +38,9 @@
             <div class="context-summary q-mt-lg">
               <div class="context-summary__item">
                 <span class="context-summary__label">Documento</span>
-                <span class="context-summary__value">{{ student.document || 'Sin documento' }}</span>
+                <span class="context-summary__value">{{
+                  student.document || 'Sin documento'
+                }}</span>
               </div>
               <div class="context-summary__item">
                 <span class="context-summary__label">Matrícula vigente</span>
@@ -46,12 +48,11 @@
               </div>
               <div class="context-summary__item">
                 <span class="context-summary__label">Año lectivo</span>
-                <span class="context-summary__value">{{ student.schoolYear ?? 'Sin asignación' }}</span>
+                <span class="context-summary__value">{{
+                  student.schoolYear ?? 'Sin asignación'
+                }}</span>
               </div>
-              <div
-                v-if="viewerRole !== 'auxiliary'"
-                class="context-summary__item"
-              >
+              <div v-if="viewerRole !== 'auxiliary'" class="context-summary__item">
                 <span class="context-summary__label">Usuario</span>
                 <span class="context-summary__value">{{ student.username }}</span>
               </div>
@@ -103,7 +104,9 @@
           >
             <div class="student-profile-panel__institution-item">
               <span class="student-profile-panel__institution-label">Estado institucional</span>
-              <span class="student-profile-panel__institution-value">{{ institutionalStatusLabel }}</span>
+              <span class="student-profile-panel__institution-value">{{
+                institutionalStatusLabel
+              }}</span>
             </div>
             <div class="student-profile-panel__institution-item">
               <span class="student-profile-panel__institution-label">Aula actual</span>
@@ -115,14 +118,13 @@
             </div>
             <div class="student-profile-panel__institution-item">
               <span class="student-profile-panel__institution-label">Año lectivo</span>
-              <span class="student-profile-panel__institution-value">{{ student.schoolYear ?? 'Sin asignación' }}</span>
+              <span class="student-profile-panel__institution-value">{{
+                student.schoolYear ?? 'Sin asignación'
+              }}</span>
             </div>
           </div>
 
-          <div
-            v-else
-            class="student-profile-summary-grid q-mt-lg"
-          >
+          <div v-else class="student-profile-summary-grid q-mt-lg">
             <StatSummaryCard
               label="Asistencia reciente"
               :value="`${student.recentSummary.attendancePercentage.toFixed(1)} %`"
@@ -131,9 +133,9 @@
               :caption="`${student.recentSummary.attendedDays} días con registro en ${student.recentSummary.schoolDays} días hábiles recientes.`"
             />
             <StatSummaryCard
-              label="Entradas / salidas"
-              :value="`${student.recentSummary.entriesRegistered} / ${student.recentSummary.exitsRegistered}`"
-              icon="swap_vert"
+              label="Entradas"
+              :value="student.recentSummary.entriesRegistered"
+              icon="login"
               tone="positive"
               :caption="`${student.recentSummary.completeDays} días completos en el periodo.`"
             />
@@ -145,16 +147,18 @@
               :caption="`${student.recentSummary.justifiedAbsences} justificadas y ${student.recentSummary.unjustifiedAbsences} no justificadas.`"
             />
             <StatSummaryCard
-              label="Tardanzas e incompletos"
-              :value="`${student.recentSummary.lateEntries} / ${student.recentSummary.incompleteRecords}`"
+              label="Tardanzas"
+              :value="student.recentSummary.lateEntries"
               icon="schedule"
               tone="info"
-              :caption="`${student.recentSummary.earlyDepartures} salidas anticipadas en el mismo periodo.`"
+              caption="Entradas registradas con tardanza en el mismo periodo."
             />
           </div>
 
           <div class="student-profile-panel__sections q-mt-xl">
-            <section class="student-profile-panel__section student-profile-panel__section--identity">
+            <section
+              class="student-profile-panel__section student-profile-panel__section--identity"
+            >
               <div class="ui-eyebrow">Identidad y matrícula</div>
               <div class="text-subtitle2 text-weight-bold q-mt-sm">
                 Datos básicos del estudiante
@@ -171,11 +175,15 @@
                 </div>
                 <div class="student-profile-panel__detail-card">
                   <span class="student-profile-panel__detail-label">Documento</span>
-                  <span class="student-profile-panel__detail-value">{{ student.document || 'Sin documento' }}</span>
+                  <span class="student-profile-panel__detail-value">{{
+                    student.document || 'Sin documento'
+                  }}</span>
                 </div>
                 <div class="student-profile-panel__detail-card">
                   <span class="student-profile-panel__detail-label">Estado institucional</span>
-                  <span class="student-profile-panel__detail-value">{{ institutionalStatusLabel }}</span>
+                  <span class="student-profile-panel__detail-value">{{
+                    institutionalStatusLabel
+                  }}</span>
                 </div>
                 <div class="student-profile-panel__detail-card">
                   <span class="student-profile-panel__detail-label">Aula actual</span>
@@ -183,7 +191,9 @@
                 </div>
                 <div class="student-profile-panel__detail-card">
                   <span class="student-profile-panel__detail-label">Año lectivo</span>
-                  <span class="student-profile-panel__detail-value">{{ student.schoolYear ?? 'Sin asignación' }}</span>
+                  <span class="student-profile-panel__detail-value">{{
+                    student.schoolYear ?? 'Sin asignación'
+                  }}</span>
                 </div>
                 <div class="student-profile-panel__detail-card">
                   <span class="student-profile-panel__detail-label">Turno</span>
@@ -213,9 +223,7 @@
                 <div class="text-subtitle2 text-weight-bold text-grey-8">
                   Sin contactos registrados
                 </div>
-                <p class="q-mb-none">
-                  No hay referencias familiares asociadas a este estudiante.
-                </p>
+                <p class="q-mb-none">No hay referencias familiares asociadas a este estudiante.</p>
               </div>
 
               <div v-else class="student-contacts-list q-mt-md">
@@ -227,7 +235,9 @@
                   <div class="student-contact-card__header">
                     <div>
                       <div class="student-contact-card__name">{{ contact.fullName }}</div>
-                      <div class="student-contact-card__relationship">{{ contact.relationship }}</div>
+                      <div class="student-contact-card__relationship">
+                        {{ contact.relationship }}
+                      </div>
                     </div>
                     <div class="row q-gutter-xs">
                       <q-chip
@@ -262,11 +272,17 @@
                       <span class="student-contact-card__label">Teléfono alterno</span>
                       <span class="student-contact-card__value">{{ contact.phoneSecondary }}</span>
                     </div>
-                    <div v-if="contact.address" class="student-contact-card__item student-contact-card__item--wide">
+                    <div
+                      v-if="contact.address"
+                      class="student-contact-card__item student-contact-card__item--wide"
+                    >
                       <span class="student-contact-card__label">Dirección</span>
                       <span class="student-contact-card__value">{{ contact.address }}</span>
                     </div>
-                    <div v-if="contact.notes" class="student-contact-card__item student-contact-card__item--wide">
+                    <div
+                      v-if="contact.notes"
+                      class="student-contact-card__item student-contact-card__item--wide"
+                    >
                       <span class="student-contact-card__label">Observación</span>
                       <span class="student-contact-card__value">{{ contact.notes }}</span>
                     </div>
@@ -294,7 +310,10 @@
                 separator
                 class="rounded-borders q-mt-md student-profile-alerts"
               >
-                <q-item v-for="alert in student.alerts" :key="`${alert.alertType}-${alert.studentId}`">
+                <q-item
+                  v-for="alert in student.alerts"
+                  :key="`${alert.alertType}-${alert.studentId}`"
+                >
                   <q-item-section avatar top>
                     <q-chip
                       square
@@ -350,9 +369,9 @@
                   </span>
                 </div>
                 <div class="student-profile-panel__attendance-item">
-                  <span class="student-profile-panel__attendance-label">Entradas / salidas</span>
+                  <span class="student-profile-panel__attendance-label">Entradas</span>
                   <span class="student-profile-panel__attendance-value">
-                    {{ student.recentSummary.entriesRegistered }} / {{ student.recentSummary.exitsRegistered }}
+                    {{ student.recentSummary.entriesRegistered }}
                   </span>
                 </div>
                 <div class="student-profile-panel__attendance-item">
@@ -366,34 +385,41 @@
               <div class="student-profile-panel__today-strip q-mt-lg">
                 <div class="student-profile-panel__today-item">
                   <span class="student-profile-panel__attendance-label">Fecha</span>
-                  <span class="student-profile-panel__attendance-caption">{{ formattedTodayDate }}</span>
+                  <span class="student-profile-panel__attendance-caption">{{
+                    formattedTodayDate
+                  }}</span>
                 </div>
                 <div class="student-profile-panel__today-item">
                   <span class="student-profile-panel__attendance-label">Entrada</span>
                   <span class="student-profile-panel__attendance-caption">
-                    {{ student.todayStatus.entry ? formatMarkedTime(student.todayStatus.entry.markedAt) : 'Pendiente' }}
+                    {{
+                      student.todayStatus.entry
+                        ? formatMarkedTime(student.todayStatus.entry.markedAt)
+                        : 'Pendiente'
+                    }}
                   </span>
                 </div>
-                <div class="student-profile-panel__today-item">
+                <div v-if="isAttendanceExitEnabled" class="student-profile-panel__today-item">
                   <span class="student-profile-panel__attendance-label">Salida</span>
                   <span class="student-profile-panel__attendance-caption">
-                    {{ student.todayStatus.exit ? formatMarkedTime(student.todayStatus.exit.markedAt) : 'Pendiente' }}
+                    {{
+                      student.todayStatus.exit
+                        ? formatMarkedTime(student.todayStatus.exit.markedAt)
+                        : 'Pendiente'
+                    }}
                   </span>
                 </div>
               </div>
             </section>
 
-            <section
-              v-if="showRecentActivity"
-              class="student-profile-panel__section"
-            >
+            <section v-if="showRecentActivity" class="student-profile-panel__section">
               <div class="ui-eyebrow">Actividad reciente</div>
               <div class="text-subtitle2 text-weight-bold q-mt-sm">
                 Últimos registros del estudiante
               </div>
 
               <div
-                v-if="student.recentItems.length === 0"
+                v-if="visibleRecentItems.length === 0"
                 class="student-profile-panel__empty text-body2 text-grey-7 q-pt-md"
               >
                 No hay registros recientes para mostrar.
@@ -401,16 +427,24 @@
 
               <div v-else class="history-results q-mt-md">
                 <article
-                  v-for="item in student.recentItems"
+                  v-for="item in visibleRecentItems"
                   :key="`${item.itemType}-${item.attendanceDate}-${item.markedAt ?? item.status}`"
                   class="history-entry"
                 >
                   <div
                     class="history-entry__icon flex flex-center"
-                    :class="item.itemType === 'absence' ? 'bg-red-1 text-red-10' : 'bg-grey-2 text-grey-9'"
+                    :class="
+                      item.itemType === 'absence' ? 'bg-red-1 text-red-10' : 'bg-grey-2 text-grey-9'
+                    "
                   >
                     <q-icon
-                      :name="item.itemType === 'absence' ? 'event_busy' : item.markType === 'entry' ? 'login' : 'logout'"
+                      :name="
+                        item.itemType === 'absence'
+                          ? 'event_busy'
+                          : item.markType === 'entry'
+                            ? 'login'
+                            : 'logout'
+                      "
                       size="22px"
                     />
                   </div>
@@ -430,25 +464,29 @@
                     <q-chip
                       v-if="item.itemType === 'absence'"
                       dense
-                      :color="getAttendanceDayStatusTone(item.status as AttendanceDayStatusType).color"
-                      :text-color="getAttendanceDayStatusTone(item.status as AttendanceDayStatusType).textColor"
+                      :color="
+                        getAttendanceDayStatusTone(item.status as AttendanceDayStatusType).color
+                      "
+                      :text-color="
+                        getAttendanceDayStatusTone(item.status as AttendanceDayStatusType).textColor
+                      "
                     >
                       {{ getAttendanceDayStatusLabel(item.status as AttendanceDayStatusType) }}
                     </q-chip>
                     <template v-else>
                       <q-chip
                         dense
-                        :color="getAttendanceRecordStatusTone(item.status as AttendanceRecordStatus).color"
-                        :text-color="getAttendanceRecordStatusTone(item.status as AttendanceRecordStatus).textColor"
+                        :color="
+                          getAttendanceRecordStatusTone(item.status as AttendanceRecordStatus).color
+                        "
+                        :text-color="
+                          getAttendanceRecordStatusTone(item.status as AttendanceRecordStatus)
+                            .textColor
+                        "
                       >
                         {{ getAttendanceRecordStatusLabel(item.status as AttendanceRecordStatus) }}
                       </q-chip>
-                      <q-chip
-                        v-if="item.source"
-                        dense
-                        color="grey-2"
-                        text-color="grey-8"
-                      >
+                      <q-chip v-if="item.source" dense color="grey-2" text-color="grey-8">
                         {{ item.source === 'qr' ? 'QR' : 'Manual' }}
                       </q-chip>
                     </template>
@@ -467,6 +505,7 @@
 import { computed } from 'vue';
 import StudentQrCredentialCard from 'components/student/StudentQrCredentialCard.vue';
 import StatSummaryCard from 'components/ui/StatSummaryCard.vue';
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import type {
   AttendanceDayStatusType,
   AttendanceHistoryItem,
@@ -474,10 +513,7 @@ import type {
 } from 'src/types/attendance';
 import type { UserRole } from 'src/types/session';
 import type { StudentDetail } from 'src/types/students';
-import {
-  getAttendanceAlertLabel,
-  getAttendanceAlertTone,
-} from 'src/utils/attendance-alerts';
+import { getAttendanceAlertLabel, getAttendanceAlertTone } from 'src/utils/attendance-alerts';
 import {
   getAttendanceDayStatusLabel,
   getAttendanceDayStatusTone,
@@ -506,11 +542,7 @@ const isStudentInstitutionalLayout = computed(
 );
 
 const classroomLabel = computed(() => {
-  if (
-    props.student.grade === null ||
-    !props.student.section ||
-    !props.student.shift
-  ) {
+  if (props.student.grade === null || !props.student.section || !props.student.shift) {
     return 'Sin asignación vigente';
   }
 
@@ -532,6 +564,10 @@ const formattedTodayDate = computed(() =>
     dateStyle: 'medium',
     timeZone: 'America/Lima',
   }).format(new Date(`${props.student.todayStatus.attendanceDate}T00:00:00`)),
+);
+
+const visibleRecentItems = computed(() =>
+  props.student.recentItems.filter((item) => isAttendanceExitEnabled || item.markType !== 'exit'),
 );
 
 const headerEyebrow = computed(() => {
@@ -643,6 +679,8 @@ function getRecentItemTitle(item: AttendanceHistoryItem): string {
     return getAttendanceDayStatusLabel(item.status as AttendanceDayStatusType);
   }
 
-  return item.markType === 'entry' ? 'Entrada registrada' : 'Salida registrada';
+  return item.markType === 'entry' || !isAttendanceExitEnabled
+    ? 'Entrada registrada'
+    : 'Salida registrada';
 }
 </script>

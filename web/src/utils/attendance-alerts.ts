@@ -1,3 +1,4 @@
+import { isAttendanceExitEnabled } from 'src/config/attendance';
 import type { AttendanceAlertType } from 'src/types/attendance';
 
 export function getAttendanceAlertTone(alertType: AttendanceAlertType): {
@@ -34,7 +35,7 @@ export function getAttendanceAlertLabel(alertType: AttendanceAlertType): string 
   }
 
   if (alertType === 'repeated_incomplete_records') {
-    return 'Registros incompletos';
+    return isAttendanceExitEnabled ? 'Registros incompletos' : 'Alertas por revisar';
   }
 
   return 'Tardanzas repetidas';

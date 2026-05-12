@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InstitutionModule } from '../institution/institution.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { StudentEnrollment } from '../students/entities/student-enrollment.entity';
 import { Student } from '../students/entities/student.entity';
 import { TutorAssignment } from '../users/entities/tutor-assignment.entity';
@@ -13,6 +14,7 @@ import { AttendanceRecord } from './entities/attendance-record.entity';
 @Module({
   imports: [
     InstitutionModule,
+    NotificationsModule,
     TypeOrmModule.forFeature([
       AttendanceRecord,
       AttendanceCorrectionLog,
